@@ -24,11 +24,24 @@ body {
 
 .page-content {
   flex: 1;
+  padding: 16px;
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+}
+
+.page-content--fullscreen {
+  padding: 0;
+}
+
+.page-content--courses {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.page-center {
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
-  padding-bottom: 88px;
 }
 
 .page-placeholder {
@@ -37,12 +50,151 @@ body {
   letter-spacing: 2px;
 }
 
+.courses-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.courses-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 4px 16px 0;
+}
+
+.courses-date-panel {
+  text-align: left;
+}
+
+.courses-date,
+.courses-week {
+  margin: 0;
+}
+
+.courses-date {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #182338;
+}
+
+.courses-week {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #72809a;
+}
+
+.courses-menu-button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: #ecf2ff;
+  color: #2f4f87;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: 1px;
+}
+
+.courses-menu-button:active {
+  background: #dee8ff;
+}
+
+.schedule-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 16px 16px 0 0;
+  padding: 8px 0;
+}
+
+.schedule-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.schedule-month-header,
+.schedule-weekday-header,
+.schedule-lesson-header,
+.schedule-cell {
+  padding: 2px;
+}
+
+.schedule-month-header,
+.schedule-weekday-header {
+  height: 34px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6c778d;
+}
+
+.schedule-month-header,
+.schedule-lesson-header {
+  width: 48px;
+  text-align: center;
+}
+
+.schedule-weekday-header {
+  text-align: center;
+}
+
+.schedule-lesson-header {
+  height: 64px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #7b859a;
+}
+
+.schedule-cell {
+  height: 64px;
+}
+
+.course-block {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+}
+
+.course-block--blue {
+  background: #d9e8ff;
+}
+
+.course-block--green {
+  background: #d8f3e7;
+}
+
+.course-block--orange {
+  background: #ffe6cc;
+}
+
+.course-block--rose {
+  background: #ffd9e6;
+}
+
+.course-block--purple {
+  background: #e5ddff;
+}
+
+.course-block--cyan {
+  background: #d8f4ff;
+}
+
+.course-block--yellow {
+  background: #fff1bf;
+}
+
 .bottom-nav {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 64px;
+  height: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   border-top: 1px solid #e6e8ef;
@@ -61,4 +213,103 @@ body {
 .bottom-nav-item.is-active {
   color: #1677ff;
   font-weight: 600;
+}
+
+.mine-page {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding-top: 32px;
+}
+
+.mine-avatar {
+  width: 108px;
+  height: 108px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: linear-gradient(160deg, #f7faff, #dbe8ff);
+  border: 1px solid #d7e3ff;
+  color: #4a5f85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.mine-button-group {
+  margin-top: 24px;
+  border: 1px solid #e6e8ef;
+  border-radius: 14px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.mine-group-button {
+  min-height: 52px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: #1f1f1f;
+  font-size: 16px;
+  background: #ffffff;
+}
+
+.mine-group-button + .mine-group-button {
+  border-top: 1px solid #edf0f6;
+}
+
+.mine-group-button:active {
+  background: #f6f8fc;
+}
+
+.mine-detail-page {
+  height: 100%;
+  min-height: 100vh;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+}
+
+.mine-detail-header {
+  height: calc(56px + env(safe-area-inset-top));
+  display: flex;
+  align-items: center;
+  padding: env(safe-area-inset-top) 12px 0;
+  border-bottom: 1px solid #eef0f5;
+}
+
+.mine-back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 64px;
+  height: 36px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #1677ff;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mine-back-button:active {
+  background: #f3f7ff;
+}
+
+.mine-back-arrow {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.mine-detail-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 2px;
 }
