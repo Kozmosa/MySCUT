@@ -1,3 +1,5 @@
+import { getSemesterStartDate } from '../../core/scheduleSettings'
+
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
 const LESSON_INDEXES = Array.from({ length: 11 }, (_, index) => index + 1)
 const COURSE_BLOCK_COLORS = [
@@ -9,7 +11,6 @@ const COURSE_BLOCK_COLORS = [
   'course-block--cyan',
   'course-block--yellow',
 ]
-const SEMESTER_START_DATE = '2026-02-23'
 
 function getCurrentDateText(date: Date) {
   return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
@@ -31,8 +32,9 @@ function getWeekNumber(date: Date, startDateText: string) {
 
 function CoursesPage() {
   const currentDate = new Date()
+  const semesterStartDate = getSemesterStartDate()
   const dateText = getCurrentDateText(currentDate)
-  const currentWeek = getWeekNumber(currentDate, SEMESTER_START_DATE)
+  const currentWeek = getWeekNumber(currentDate, semesterStartDate)
   const monthLabel = `${currentDate.getMonth() + 1}月`
 
   return (
