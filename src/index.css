@@ -112,8 +112,46 @@ body {
   overscroll-behavior-x: none;
   touch-action: pan-y;
   background: #ffffff;
-  border-radius: 16px 16px 0 0;
   padding: 8px 0;
+}
+
+.schedule-swipe-viewport {
+  flex: 1;
+  overflow: hidden;
+  border-radius: 16px 16px 0 0;
+}
+
+.schedule-swipe-track {
+  height: 100%;
+  width: 300%;
+  display: flex;
+  transform: translateX(-33.3333%);
+  will-change: transform;
+}
+
+.schedule-swipe-track.is-prev,
+.schedule-swipe-track.is-next,
+.schedule-swipe-track.is-reset {
+  transition: transform 240ms ease-out;
+}
+
+.schedule-swipe-track.is-dragging {
+  transition: none;
+}
+
+.schedule-swipe-track.is-prev {
+  transform: translateX(0%);
+}
+
+.schedule-swipe-track.is-next {
+  transform: translateX(-66.6667%);
+}
+
+.schedule-swipe-page {
+  flex: 0 0 33.3333%;
+  min-width: 0;
+  height: 100%;
+  display: flex;
 }
 
 .schedule-table {
