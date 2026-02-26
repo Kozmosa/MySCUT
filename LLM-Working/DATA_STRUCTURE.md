@@ -14,7 +14,7 @@
 ```ts
 type ScheduleData = {
   version: 1
-  source: 'wakeup'
+  source: 'wakeup' | 'scutHtml'
   importedAt: number
   table: {
     id: number
@@ -31,23 +31,31 @@ type ScheduleData = {
   timeSlots: WakeupTimeSlot[]
   courses: ScheduleCourse[]
   lessons: ScheduleLesson[]
-  raw: {
-    meta: WakeupMeta
-    timeSlots: WakeupTimeSlot[]
-    tableConfig: WakeupTableConfig
-    courses: WakeupCourse[]
-    lessons: WakeupLesson[]
-  }
+  raw:
+    | {
+        kind: 'wakeup'
+        meta: WakeupMeta
+        timeSlots: WakeupTimeSlot[]
+        tableConfig: WakeupTableConfig
+        courses: WakeupCourse[]
+        lessons: WakeupLesson[]
+      }
+    | {
+        kind: 'scutHtml'
+        html: string
+      }
 }
 ```
 
 说明：
 
 - `version`：结构版本号，当前为 `1`
-- `source`：数据来源标识，当前为 `'wakeup'`
+- `source`：数据来源标识，当前支持 `'wakeup' | 'scutHtml'`
 - `importedAt`：导入时间戳（毫秒）
 - `table/timeSlots/courses/lessons`：规范化后的业务字段
-- `raw`：完整保留 WakeUp 原始五行结构，保证无损
+- `raw`：按来源保留原始结构
+  - `kind='wakeup'`：完整保留 WakeUp 原始五行结构
+  - `kind='scutHtml'`：保留原始 HTML 文本
 
 ## 3. 核心子结构
 
@@ -109,13 +117,64 @@ WakeUp 文件按 5 行 JSON 处理：
 - `step` -> `ScheduleLesson.weekStep`
 - `tableConfig.startDate` 规范化为 `YYYY-MM-DD` 写入 `table.startDate`
 
-## 5. 持久化存储
+## 5. 华工教务 HTML 导入映射
 
-- `localStorage` key：`scheduleData`
-- 存储内容：`JSON.stringify(ScheduleData)`
-- 读取时进行最小结构校验（`version/source/table/courses/lessons`）
+导入来源为教务系统周视图 HTML（`table1`）：
 
-## 6. 渲染辅助结构
+- 从 `td.td_wrap[id]` 提取课程单元格
+- `id` 解析星期与起始节次（示例：`4-1`）
+- `rowspan` 作为跨节参考
+- `.timetable_con` 作为课程块（同格多课程逐条入库）
+
+字段提取规则：
+
+- 课程名：`.title` 文本
+- 教室：包含 `.glyphicon-map-marker` 的段落
+- 教师：包含 `.glyphicon-user` 的段落
+- 周次：从文本匹配 `x-y周` 或 `x周`
+
+导入后结构映射：
+
+- `source = 'scutHtml'`
+- `raw.kind = 'scutHtml'`
+- `raw.html` 保存原始 HTML
+- `timeSlots` 使用统一默认预设（来自 WakeUp 样例的 1-11 节）
+
+## 6. 持久化存储（多课表）
+
+当前使用课表库模型存储：
+
+```ts
+type SavedSchedule = {
+  id: string
+  name: string
+  source: 'wakeup' | 'scutHtml'
+  themeId: string
+  semesterStartDate: string
+  createdAt: number
+  scheduleData: ScheduleData
+}
+
+type ScheduleLibrary = {
+  version: 1
+  activeScheduleId: string
+  schedules: SavedSchedule[]
+}
+```
+
+存储 key：
+
+- `scheduleLibrary`：当前主存储
+- `scheduleData`：历史单课表 key（保留迁移兼容）
+
+行为说明：
+
+- 新导入课表会追加到 `schedules[]`
+- 默认设为当前活动课表（更新 `activeScheduleId`）
+- 切换课表时会恢复该课表绑定的 `themeId` 与 `semesterStartDate`
+- 若仅存在历史 `scheduleData`，首次读取会自动迁移进 `scheduleLibrary`
+
+## 7. 渲染辅助结构
 
 课表渲染使用 `WeekCellCourse[]`：
 
@@ -138,14 +197,21 @@ type WeekCellCourse = {
 - `currentWeek <= endWeek`
 - `(currentWeek - startWeek) % weekStep === 0`
 
-## 7. 课表配色方案结构
+## 8. 课表配色方案结构
 
 课表配色方案与课表数据本体解耦，独立存储于 `themePresets` 与 `themeStorage` 模块。
 
 ### 7.1 配色预设结构
 
 ```ts
-type ScheduleThemeId = 'skyBlue'
+type ScheduleThemeId =
+  | 'skyBlue'
+  | 'bambooGrove'
+  | 'palacePlum'
+  | 'mistyJiangnan'
+  | 'luoyangPeony'
+  | 'dunhuangApsaras'
+  | 'autumnOsmanthus'
 
 type ScheduleThemePreset = {
   id: ScheduleThemeId
@@ -172,13 +238,13 @@ type ScheduleThemePreset = {
   - `preset`：忽略课程原始色，按预设色组统一着色
 - `fallbackColors`：当课程无颜色或颜色无效时的兜底色组
 
-### 7.2 配色持久化
+### 8.2 配色持久化
 
 - `localStorage` key：`scheduleThemeId`
 - 存储内容：当前选中的 `ScheduleThemeId`
 - 默认值：`skyBlue`
 
-### 7.3 当前预设
+### 8.3 当前预设
 
 - `默认`（`skyBlue`）
   - `primaryColor`: `#63a9ff`
