@@ -100,7 +100,7 @@ export type ScheduleLesson = {
 
 export type ScheduleData = {
   version: 1
-  source: 'wakeup'
+  source: 'wakeup' | 'scutHtml'
   importedAt: number
   table: {
     id: number
@@ -117,13 +117,19 @@ export type ScheduleData = {
   timeSlots: WakeupTimeSlot[]
   courses: ScheduleCourse[]
   lessons: ScheduleLesson[]
-  raw: {
-    meta: WakeupMeta
-    timeSlots: WakeupTimeSlot[]
-    tableConfig: WakeupTableConfig
-    courses: WakeupCourse[]
-    lessons: WakeupLesson[]
-  }
+  raw:
+    | {
+        kind: 'wakeup'
+        meta: WakeupMeta
+        timeSlots: WakeupTimeSlot[]
+        tableConfig: WakeupTableConfig
+        courses: WakeupCourse[]
+        lessons: WakeupLesson[]
+      }
+    | {
+        kind: 'scutHtml'
+        html: string
+      }
 }
 
 export type WeekCellCourse = {
@@ -133,4 +139,14 @@ export type WeekCellCourse = {
   teacher: string
   room: string
   lesson: ScheduleLesson
+}
+
+export type SavedSchedule = {
+  id: string
+  name: string
+  source: ScheduleData['source']
+  themeId: string
+  semesterStartDate: string
+  createdAt: number
+  scheduleData: ScheduleData
 }

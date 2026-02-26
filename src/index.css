@@ -615,3 +615,41 @@ body {
   color: #1f1f1f;
   border: 1px solid #d9dfe8;
 }
+
+.schedule-switch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.schedule-switch-item {
+  width: 100%;
+  border: 1px solid #dfe4ef;
+  border-radius: 10px;
+  background: #ffffff;
+  text-align: left;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #1f1f1f;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.schedule-switch-item.is-active {
+  border-color: #7eaef6;
+  background: #f4f8ff;
+}
+
+.schedule-switch-meta {
+  font-size: 12px;
+  color: #75839b;
+}
+
+.schedule-switch-empty {
+  margin: 0;
+  text-align: center;
+  color: #72809a;
+  font-size: 13px;
+}

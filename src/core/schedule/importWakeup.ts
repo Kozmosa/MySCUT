@@ -115,6 +115,7 @@ export function parseWakeupScheduleText(text: string): ScheduleData {
     courses: normalizedCourses,
     lessons: normalizedLessons,
     raw: {
+      kind: 'wakeup',
       meta,
       timeSlots,
       tableConfig,
