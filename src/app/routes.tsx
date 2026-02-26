@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { CoursesPage } from '../features/courses'
+import { ManualPage } from '../features/manual'
 import { MineDetailPage, MinePage, ScheduleSettingsPage } from '../features/mine'
 
 function AppRoutes() {
@@ -7,6 +8,7 @@ function AppRoutes() {
     <Routes>
       <Route path='/' element={<Navigate to='/courses' replace />} />
       <Route path='/courses' element={<CoursesPage />} />
+      <Route path='/manual' element={<ManualPage />} />
       <Route path='/mine' element={<MinePage />} />
       <Route path='/mine/schedule-settings' element={<ScheduleSettingsPage />} />
       <Route path='/mine/global-settings' element={<MineDetailPage title='全局设置' />} />
