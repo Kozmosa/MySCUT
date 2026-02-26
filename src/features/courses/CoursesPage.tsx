@@ -1,4 +1,13 @@
-import { type CSSProperties, type TouchEvent, type TransitionEvent, useMemo, useState } from 'react'
+import {
+  type CSSProperties,
+  type ReactNode,
+  type TouchEvent,
+  type TransitionEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { Modal } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { buildWeekCellCourseMap, getCellCourses } from '../../core/schedule/selectors'
@@ -10,6 +19,162 @@ import { getSemesterStartDate } from '../../core/scheduleSettings'
 
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
 const LESSON_INDEXES = Array.from({ length: 11 }, (_, index) => index + 1)
+const SCROLL_HINT_THRESHOLD = 2
+
+type ScheduleScrollPaneProps = {
+  children: ReactNode
+}
+
+function ScheduleScrollPane({ children }: ScheduleScrollPaneProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [showTopHint, setShowTopHint] = useState(false)
+  const [showBottomHint, setShowBottomHint] = useState(false)
+  const [topOcclusion, setTopOcclusion] = useState(0)
+  const [bottomOcclusion, setBottomOcclusion] = useState(0)
+
+  const getTopOcclusion = (element: HTMLDivElement) => {
+    const topHeader = document.querySelector<HTMLElement>('.courses-header')
+    if (!topHeader) {
+      return 0
+    }
+
+    const elementRect = element.getBoundingClientRect()
+    const headerRect = topHeader.getBoundingClientRect()
+    const overlap = Math.min(elementRect.bottom, headerRect.bottom) - Math.max(elementRect.top, headerRect.top)
+
+    return Math.max(0, overlap)
+  }
+
+  const getBottomOcclusion = (element: HTMLDivElement) => {
+    const bottomNav = document.querySelector<HTMLElement>('.bottom-nav')
+    if (!bottomNav) {
+      return 0
+    }
+
+    const elementRect = element.getBoundingClientRect()
+    const navRect = bottomNav.getBoundingClientRect()
+    const overlap = Math.min(elementRect.bottom, navRect.bottom) - Math.max(elementRect.top, navRect.top)
+
+    return Math.max(0, overlap)
+  }
+
+  const updateHintVisibility = () => {
+    const element = scrollRef.current
+    if (!element) {
+      return
+    }
+
+    const topOcclusion = getTopOcclusion(element)
+    const bottomOcclusion = getBottomOcclusion(element)
+    setTopOcclusion(topOcclusion)
+    setBottomOcclusion(bottomOcclusion)
+
+    const effectiveTop = element.scrollTop + topOcclusion
+    const effectiveBottom = element.scrollTop + element.clientHeight - bottomOcclusion
+
+    const scrollRect = element.getBoundingClientRect()
+    const courseCards = Array.from(element.querySelectorAll<HTMLElement>('.course-card'))
+
+    if (courseCards.length === 0) {
+      setShowTopHint(false)
+      setShowBottomHint(false)
+      return
+    }
+
+    let hasTopCourse = false
+    let hasBottomCourse = false
+
+    for (const card of courseCards) {
+      const cardRect = card.getBoundingClientRect()
+      const cardTop = cardRect.top - scrollRect.top + element.scrollTop
+      const cardBottom = cardRect.bottom - scrollRect.top + element.scrollTop
+
+      if (cardTop < effectiveTop - SCROLL_HINT_THRESHOLD) {
+        hasTopCourse = true
+      }
+
+      if (cardBottom > effectiveBottom + SCROLL_HINT_THRESHOLD) {
+        hasBottomCourse = true
+      }
+
+      if (hasTopCourse && hasBottomCourse) {
+        break
+      }
+    }
+
+    setShowTopHint(hasTopCourse)
+    setShowBottomHint(hasBottomCourse)
+  }
+
+  const handleScroll = () => {
+    updateHintVisibility()
+  }
+
+  useEffect(() => {
+    updateHintVisibility()
+
+    const element = scrollRef.current
+    if (!element) {
+      return
+    }
+
+    const handleResize = () => {
+      updateHintVisibility()
+    }
+
+    window.addEventListener('resize', handleResize)
+
+    if (typeof ResizeObserver === 'undefined') {
+      return () => {
+        window.removeEventListener('resize', handleResize)
+      }
+    }
+
+    const bottomNav = document.querySelector<HTMLElement>('.bottom-nav')
+    const topHeader = document.querySelector<HTMLElement>('.courses-header')
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateHintVisibility()
+    })
+
+    resizeObserver.observe(element)
+    if (bottomNav) {
+      resizeObserver.observe(bottomNav)
+    }
+    if (topHeader) {
+      resizeObserver.observe(topHeader)
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      resizeObserver.disconnect()
+    }
+  }, [children])
+
+  return (
+    <div className='schedule-scroll-pane'>
+      {showTopHint && (
+        <div className='schedule-scroll-hint schedule-scroll-hint--top' style={{ top: `${topOcclusion + 8}px` }}>
+          上方还有课程哦
+        </div>
+      )}
+
+      <div ref={scrollRef} className='schedule-scroll-area' onScroll={handleScroll}>
+        {children}
+      </div>
+
+      {showBottomHint && (
+        <div
+          className='schedule-scroll-hint schedule-scroll-hint--bottom'
+          style={{ bottom: `${bottomOcclusion + 8}px` }}
+        >
+          下方还有课程哦
+        </div>
+      )}
+    </div>
+  )
+}
+
 function getCurrentDateText(date: Date) {
   return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
 }
@@ -437,34 +602,34 @@ function CoursesPage() {
       >
         <div className={trackClassName} style={trackStyle} onTransitionEnd={handleSwipeTransitionEnd}>
           <div className='schedule-swipe-page'>
-            <div className='schedule-scroll-area'>
+            <ScheduleScrollPane>
               {renderScheduleTable(
                 scheduleData,
                 scheduleThemePreset,
                 swipeState.prevWeek,
                 handleOpenCourseDetail,
               )}
-            </div>
+            </ScheduleScrollPane>
           </div>
           <div className='schedule-swipe-page'>
-            <div className='schedule-scroll-area'>
+            <ScheduleScrollPane>
               {renderScheduleTable(
                 scheduleData,
                 scheduleThemePreset,
                 swipeState.currentWeek,
                 handleOpenCourseDetail,
               )}
-            </div>
+            </ScheduleScrollPane>
           </div>
           <div className='schedule-swipe-page'>
-            <div className='schedule-scroll-area'>
+            <ScheduleScrollPane>
               {renderScheduleTable(
                 scheduleData,
                 scheduleThemePreset,
                 swipeState.nextWeek,
                 handleOpenCourseDetail,
               )}
-            </div>
+            </ScheduleScrollPane>
           </div>
         </div>
       </section>
