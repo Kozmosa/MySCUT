@@ -28,6 +28,14 @@ function App() {
             课程
           </NavLink>
           <NavLink
+            to='/manual'
+            className={({ isActive }) =>
+              `bottom-nav-item ${isActive ? 'is-active' : ''}`
+            }
+          >
+            手册
+          </NavLink>
+          <NavLink
             to='/mine'
             className={({ isActive }) =>
               `bottom-nav-item ${isActive ? 'is-active' : ''}`
