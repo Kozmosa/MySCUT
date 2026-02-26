@@ -253,7 +253,7 @@ body {
 .course-card-meta {
   margin: 0;
   line-height: 1.2;
-  color: #1f1f1f;
+  color: var(--course-text-primary, #1f1f1f);
 }
 
 .course-card-name {
@@ -264,7 +264,7 @@ body {
 .course-card-meta {
   margin-top: 4px;
   font-size: 10px;
-  color: #4f5563;
+  color: var(--course-text-secondary, #4f5563);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -276,7 +276,7 @@ body {
   bottom: 4px;
   font-size: 10px;
   font-weight: 600;
-  color: #3f4d67;
+  color: var(--course-text-badge, #3f4d67);
 }
 
 .course-block--blue {

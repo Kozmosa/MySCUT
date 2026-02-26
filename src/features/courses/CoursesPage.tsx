@@ -1,4 +1,4 @@
-import { type TouchEvent, type TransitionEvent, useMemo, useState } from 'react'
+import { type CSSProperties, type TouchEvent, type TransitionEvent, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { buildWeekCellCourseMap, getCellCourses } from '../../core/schedule/selectors'
 import { loadScheduleData } from '../../core/schedule/storage'
@@ -53,12 +53,17 @@ function getCourseCardColor(
   themePreset: ScheduleThemePreset,
   day: number,
   lessonNumber: number,
+  courseId: number,
   courseColor: string,
 ) {
-  const fallbackColor = themePreset.fallbackColors[(day + lessonNumber) % themePreset.fallbackColors.length]
+  const fallbackColor = themePreset.fallbackColors[(courseId + day + lessonNumber) % themePreset.fallbackColors.length]
 
   if (themePreset.mode === 'wakeup') {
     return getColorFromWakeup(courseColor, fallbackColor)
+  }
+
+  if (themePreset.mode === 'preset') {
+    return fallbackColor
   }
 
   return fallbackColor
@@ -76,10 +81,21 @@ function renderCourseCell(
 
   const firstCourse = cellCourses[0]
   const extraCount = cellCourses.length - 1
-  const backgroundColor = getCourseCardColor(themePreset, day, lessonNumber, firstCourse.color)
+  const backgroundColor = getCourseCardColor(
+    themePreset,
+    day,
+    lessonNumber,
+    firstCourse.courseId,
+    firstCourse.color,
+  )
+  const cardTextStyle = {
+    '--course-text-primary': themePreset.textColorPrimary,
+    '--course-text-secondary': themePreset.textColorSecondary,
+    '--course-text-badge': themePreset.textColorBadge,
+  } as CSSProperties
 
   return (
-    <div className='course-card' style={{ backgroundColor }}>
+    <div className='course-card' style={{ backgroundColor, ...cardTextStyle }}>
       <p className='course-card-name'>{firstCourse.name}</p>
       <p className='course-card-meta'>{firstCourse.room || firstCourse.teacher || '-'}</p>
       {extraCount > 0 && <span className='course-card-more'>+{extraCount}</span>}

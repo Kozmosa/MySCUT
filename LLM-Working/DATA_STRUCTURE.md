@@ -151,7 +151,10 @@ type ScheduleThemePreset = {
   id: ScheduleThemeId
   name: string
   primaryColor: string
-  mode: 'wakeup'
+  textColorPrimary: string
+  textColorSecondary: string
+  textColorBadge: string
+  mode: 'wakeup' | 'preset'
   fallbackColors: string[]
 }
 ```
@@ -161,7 +164,12 @@ type ScheduleThemePreset = {
 - `id`：配色方案唯一标识
 - `name`：用于设置界面展示
 - `primaryColor`：用于配色按钮主题色展示
-- `mode`：颜色解析策略，目前为 `wakeup`（优先使用课程原始色）
+- `textColorPrimary`：课程名文字颜色
+- `textColorSecondary`：课程副文本（教室/教师）颜色
+- `textColorBadge`：冲突计数 `+N` 颜色
+- `mode`：颜色解析策略
+  - `wakeup`：优先使用课程原始色
+  - `preset`：忽略课程原始色，按预设色组统一着色
 - `fallbackColors`：当课程无颜色或颜色无效时的兜底色组
 
 ### 7.2 配色持久化
@@ -172,6 +180,9 @@ type ScheduleThemePreset = {
 
 ### 7.3 当前预设
 
-- `天空蓝`（`skyBlue`）
+- `默认`（`skyBlue`）
   - `primaryColor`: `#63a9ff`
+  - `textColorPrimary`: `#ffffff`
+  - `textColorSecondary`: `#dfe4ee`
+  - `textColorBadge`: `#ffffff`
   - 对应当前 WakeUp 样例配色风格

@@ -27,6 +27,13 @@
   - `SCHEDULE_THEME_PRESETS`
   - `getScheduleThemePresetById()`
 - 当前预设：`skyBlue`（天空蓝）
+- 预设新增三档文字色字段：
+  - `textColorPrimary`（课程名）
+  - `textColorSecondary`（副文本）
+  - `textColorBadge`（`+N`）
+- 新增模式区分：
+  - `wakeup`：使用课程原始色
+  - `preset`：使用主题预设色组
 
 ### 2) 配色持久化
 
@@ -44,6 +51,9 @@
   - 读取当前主题 preset
   - 根据 preset 的 `mode` 选择颜色解析策略
   - 在 `wakeup` 模式下兼容 `#AARRGGBB` 色值并提供 fallback 颜色
+- 课程卡片文本颜色改为主题驱动：
+  - 通过 CSS 变量注入主文本、副文本与角标颜色
+  - 支持按主题统一调整可读性
 
 ### 4) 设置页交互
 
@@ -69,6 +79,7 @@
 
 - 已实现可配置、可持久化的课表主题框架
 - 当前可选预设为“天空蓝”
+- `skyBlue` 名称调整为“默认”，并保留 WakeUp 原始色模式
 - 自定义入口已留出并具备占位反馈
 
 ## 后续建议
@@ -80,5 +91,6 @@
 ## 关联文档
 
 - [[DATA_STRUCTURE#7. 课表配色方案结构]]
+- [[DATA_STRUCTURE#7.1 配色预设结构]]
 - [[ScheduleImpl0226#主要改动点]]
 - [[SKILL_保存实现文档#推荐模板]]
