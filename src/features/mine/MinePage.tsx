@@ -1,10 +1,28 @@
-import { type ChangeEvent, useRef, useState } from 'react'
+import { type CSSProperties, type ChangeEvent, useRef, useState } from 'react'
 import { message } from 'antd'
 import { Link } from 'react-router-dom'
+import { useGlobalTheme } from '../../platform/web/theme/GlobalThemeProvider'
 
 const AVATAR_STORAGE_KEY = 'avatar'
 const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg']
 const AVATAR_OUTPUT_SIZE = 256
+
+const GLOBAL_THEME_MODE_LABELS = {
+  light: '亮色',
+  dark: '暗色',
+  system: '跟随系统',
+} as const
+
+const RESOLVED_THEME_MODE_LABELS = {
+  light: '亮色',
+  dark: '暗色',
+} as const
+
+const THEME_MODE_INDEX: Record<keyof typeof GLOBAL_THEME_MODE_LABELS, number> = {
+  light: 0,
+  dark: 1,
+  system: 2,
+}
 
 function getStoredAvatar() {
   try {
@@ -66,6 +84,10 @@ function MinePage() {
   const [messageApi, contextHolder] = message.useMessage()
   const [avatar, setAvatar] = useState<string | null>(() => getStoredAvatar())
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { mode, resolvedMode, setMode } = useGlobalTheme()
+  const segmentStyle = {
+    '--segment-index': THEME_MODE_INDEX[mode],
+  } as CSSProperties
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click()
@@ -118,6 +140,48 @@ function MinePage() {
         className='mine-avatar-input'
         onChange={handleFileChange}
       />
+
+      <div className='mine-button-group'>
+        <div className='mine-group-button mine-theme-mode-panel'>
+          <div className='mine-theme-mode-header'>
+            <span>全局主题模式</span>
+            <span className='mine-theme-toggle-meta'>{GLOBAL_THEME_MODE_LABELS[mode]}</span>
+          </div>
+
+          <div className='mine-theme-segment' role='group' aria-label='全局主题切换' style={segmentStyle}>
+            <span className='mine-theme-segment-indicator' aria-hidden='true' />
+            <button
+              type='button'
+              className={`mine-theme-segment-button ${mode === 'light' ? 'is-active' : ''}`}
+              aria-pressed={mode === 'light'}
+              onClick={() => setMode('light')}
+            >
+              亮色
+            </button>
+            <button
+              type='button'
+              className={`mine-theme-segment-button ${mode === 'dark' ? 'is-active' : ''}`}
+              aria-pressed={mode === 'dark'}
+              onClick={() => setMode('dark')}
+            >
+              暗色
+            </button>
+            <button
+              type='button'
+              className={`mine-theme-segment-button ${mode === 'system' ? 'is-active' : ''}`}
+              aria-pressed={mode === 'system'}
+              onClick={() => setMode('system')}
+            >
+              跟随系统
+            </button>
+          </div>
+
+          <div className='mine-theme-mode-footer'>
+            <span>当前生效主题</span>
+            <span className='mine-theme-toggle-meta'>{RESOLVED_THEME_MODE_LABELS[resolvedMode]}</span>
+          </div>
+        </div>
+      </div>
 
       <div className='mine-button-group'>
         <Link to='/mine/schedule-settings' className='mine-group-button'>

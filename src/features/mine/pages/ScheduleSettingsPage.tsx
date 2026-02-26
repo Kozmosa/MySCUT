@@ -1,4 +1,4 @@
-import { type ChangeEvent, useRef, useState } from 'react'
+import { type ChangeEvent, useEffect, useRef, useState } from 'react'
 import { DatePicker, Input, Modal, Select, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { parseScutScheduleHtml } from '../../../core/schedule/importScutHtml'
@@ -13,12 +13,18 @@ import { getScheduleThemePresetById, SCHEDULE_THEME_PRESETS, type ScheduleThemeI
 import { getScheduleThemeId, getScheduleThemePreset, setScheduleThemeId } from '../../../core/schedule/themeStorage'
 import { getSemesterStartDate, saveSemesterStartDate } from '../../../core/scheduleSettings'
 import type { ScheduleData } from '../../../core/schedule/types'
+import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../../core/navigation/animatedBack'
 
 const { TextArea } = Input
 
 type HtmlImportMethod = 'file' | 'clipboard' | 'input'
 
 type SavedScheduleItem = ReturnType<typeof listSavedSchedules>[number]
+
+type TransitionStage = 'entering' | 'entered' | 'closing'
+
+const ENTER_ANIMATION_FRAME_MS = 16
+const CLOSE_TRANSITION_MS = 220
 
 function ScheduleSettingsPage() {
   const navigate = useNavigate()
@@ -37,6 +43,65 @@ function ScheduleSettingsPage() {
   const [pendingDate, setPendingDate] = useState(semesterStartDate)
   const [scheduleName, setScheduleName] = useState(() => loadActiveScheduleEntry()?.name ?? '')
   const [themeName, setThemeName] = useState(() => getScheduleThemePreset().name)
+  const [transitionStage, setTransitionStage] = useState<TransitionStage>('entering')
+  const closeTimerRef = useRef<number | null>(null)
+  const enterTimerRef = useRef<number | null>(null)
+  const isClosingRef = useRef(false)
+
+  const navigateBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1)
+      return
+    }
+
+    navigate('/mine', { replace: true })
+  }
+
+  const startClosingTransition = () => {
+    if (isClosingRef.current) {
+      return false
+    }
+
+    isClosingRef.current = true
+    setTransitionStage('closing')
+
+    closeTimerRef.current = window.setTimeout(() => {
+      navigateBack()
+    }, CLOSE_TRANSITION_MS)
+
+    return true
+  }
+
+  useEffect(() => {
+    enterTimerRef.current = window.setTimeout(() => {
+      setTransitionStage('entered')
+    }, ENTER_ANIMATION_FRAME_MS)
+
+    const handleAnimatedBack = (event: Event) => {
+      const customEvent = event as CustomEvent<AnimatedBackRequestDetail>
+
+      if (customEvent.detail.handled) {
+        return
+      }
+
+      const handled = startClosingTransition()
+      customEvent.detail.handled = handled
+    }
+
+    window.addEventListener(ANIMATED_BACK_EVENT, handleAnimatedBack)
+
+    return () => {
+      window.removeEventListener(ANIMATED_BACK_EVENT, handleAnimatedBack)
+
+      if (enterTimerRef.current !== null) {
+        window.clearTimeout(enterTimerRef.current)
+      }
+
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current)
+      }
+    }
+  }, [])
 
   const refreshScheduleState = () => {
     const activeSchedule = loadActiveScheduleEntry()
@@ -45,12 +110,7 @@ function ScheduleSettingsPage() {
   }
 
   const handleClose = () => {
-    if (window.history.length > 1) {
-      navigate(-1)
-      return
-    }
-
-    navigate('/mine', { replace: true })
+    startClosingTransition()
   }
 
   const handleOpenDateModal = () => {
@@ -256,7 +316,7 @@ function ScheduleSettingsPage() {
   }
 
   return (
-    <section className='schedule-settings-page'>
+    <section className={`schedule-settings-page settings-view-transition settings-view-transition--${transitionStage}`}>
       {contextHolder}
 
       <header className='schedule-settings-header'>
@@ -269,6 +329,7 @@ function ScheduleSettingsPage() {
           type='button'
           className='schedule-settings-close-button'
           aria-label='关闭课表设置'
+          disabled={transitionStage === 'closing'}
           onClick={handleClose}
         >
           ×
