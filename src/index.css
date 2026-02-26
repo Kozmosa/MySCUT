@@ -156,6 +156,7 @@ body {
   min-height: 0;
   overflow: hidden;
   border-radius: 16px 16px 0 0;
+  touch-action: pan-y;
 }
 
 .schedule-swipe-track {
@@ -243,10 +244,17 @@ body {
 .course-card {
   width: 100%;
   height: 100%;
+  border: none;
   border-radius: 10px;
   padding: 6px;
   position: relative;
   overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+}
+
+.course-card:active {
+  transform: scale(0.98);
 }
 
 .course-card-name,
@@ -277,6 +285,32 @@ body {
   font-size: 10px;
   font-weight: 600;
   color: var(--course-text-badge, #3f4d67);
+}
+
+.course-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.course-detail-item {
+  border: 1px solid #e7ebf2;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f8faff;
+}
+
+.course-detail-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a2740;
+}
+
+.course-detail-line {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #44506a;
 }
 
 .course-block--blue {

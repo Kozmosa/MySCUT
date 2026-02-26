@@ -1,4 +1,5 @@
 import { type CSSProperties, type TouchEvent, type TransitionEvent, useMemo, useState } from 'react'
+import { Modal } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { buildWeekCellCourseMap, getCellCourses } from '../../core/schedule/selectors'
 import { loadScheduleData } from '../../core/schedule/storage'
@@ -74,6 +75,7 @@ function renderCourseCell(
   day: number,
   lessonNumber: number,
   cellCourses: WeekCellCourse[],
+  onOpenDetail: (courses: WeekCellCourse[], day: number, node: number) => void,
 ) {
   if (cellCourses.length === 0) {
     return null
@@ -95,11 +97,16 @@ function renderCourseCell(
   } as CSSProperties
 
   return (
-    <div className='course-card' style={{ backgroundColor, ...cardTextStyle }}>
+    <button
+      type='button'
+      className='course-card'
+      style={{ backgroundColor, ...cardTextStyle }}
+      onClick={() => onOpenDetail(cellCourses, day, lessonNumber)}
+    >
       <p className='course-card-name'>{firstCourse.name}</p>
       <p className='course-card-meta'>{firstCourse.room || firstCourse.teacher || '-'}</p>
       {extraCount > 0 && <span className='course-card-more'>+{extraCount}</span>}
-    </div>
+    </button>
   )
 }
 
@@ -119,6 +126,7 @@ function renderScheduleTable(
   scheduleData: ReturnType<typeof loadScheduleData>,
   themePreset: ScheduleThemePreset,
   weekNumber: number,
+  onOpenDetail: (courses: WeekCellCourse[], day: number, node: number) => void,
 ) {
   const today = new Date()
   const monthLabel = `${today.getMonth() + 1}月`
@@ -152,7 +160,7 @@ function renderScheduleTable(
 
               return (
                 <td key={`${lessonNumber}-${weekday}`} className='schedule-cell'>
-                  {renderCourseCell(themePreset, day, lessonNumber, cellCourses)}
+                  {renderCourseCell(themePreset, day, lessonNumber, cellCourses, onOpenDetail)}
                 </td>
               )
             })}
@@ -174,6 +182,10 @@ function CoursesPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [isCourseDetailOpen, setIsCourseDetailOpen] = useState(false)
+  const [selectedCourses, setSelectedCourses] = useState<WeekCellCourse[]>([])
+  const [selectedDay, setSelectedDay] = useState(1)
+  const [selectedNode, setSelectedNode] = useState(1)
   const scheduleData = useMemo(() => loadScheduleData(), [])
   const scheduleThemePreset = useMemo(() => getScheduleThemePreset(), [])
 
@@ -230,7 +242,6 @@ function CoursesPage() {
       return
     }
 
-    event.preventDefault()
     setIsDragging(true)
 
     if (deltaX > 0 && weekOffset <= minWeekOffset) {
@@ -356,6 +367,24 @@ function CoursesPage() {
     setSwipeDirection('next')
   }
 
+  const handleOpenCourseDetail = (courses: WeekCellCourse[], day: number, node: number) => {
+    if (courses.length === 0) {
+      return
+    }
+
+    setSelectedCourses(courses)
+    setSelectedDay(day)
+    setSelectedNode(node)
+    setIsCourseDetailOpen(true)
+  }
+
+  const handleCloseCourseDetail = () => {
+    setIsCourseDetailOpen(false)
+    setSelectedCourses([])
+  }
+
+  const selectedWeekday = WEEKDAY_LABELS[selectedDay - 1] ?? ''
+
   return (
     <div className='courses-page'>
       <header className='courses-header'>
@@ -409,21 +438,55 @@ function CoursesPage() {
         <div className={trackClassName} style={trackStyle} onTransitionEnd={handleSwipeTransitionEnd}>
           <div className='schedule-swipe-page'>
             <div className='schedule-scroll-area'>
-              {renderScheduleTable(scheduleData, scheduleThemePreset, swipeState.prevWeek)}
+              {renderScheduleTable(
+                scheduleData,
+                scheduleThemePreset,
+                swipeState.prevWeek,
+                handleOpenCourseDetail,
+              )}
             </div>
           </div>
           <div className='schedule-swipe-page'>
             <div className='schedule-scroll-area'>
-              {renderScheduleTable(scheduleData, scheduleThemePreset, swipeState.currentWeek)}
+              {renderScheduleTable(
+                scheduleData,
+                scheduleThemePreset,
+                swipeState.currentWeek,
+                handleOpenCourseDetail,
+              )}
             </div>
           </div>
           <div className='schedule-swipe-page'>
             <div className='schedule-scroll-area'>
-              {renderScheduleTable(scheduleData, scheduleThemePreset, swipeState.nextWeek)}
+              {renderScheduleTable(
+                scheduleData,
+                scheduleThemePreset,
+                swipeState.nextWeek,
+                handleOpenCourseDetail,
+              )}
             </div>
           </div>
         </div>
       </section>
+
+      <Modal
+        title={`课程详情 · 星期${selectedWeekday} 第${selectedNode}节`}
+        open={isCourseDetailOpen}
+        onCancel={handleCloseCourseDetail}
+        footer={null}
+      >
+        <div className='course-detail-list'>
+          {selectedCourses.map((course) => (
+            <article key={course.lesson.instanceId} className='course-detail-item'>
+              <h3 className='course-detail-name'>{course.name}</h3>
+              <p className='course-detail-line'>教室：{course.room || '-'}</p>
+              <p className='course-detail-line'>教师：{course.teacher || '-'}</p>
+              <p className='course-detail-line'>周次：第{course.lesson.startWeek}-{course.lesson.endWeek}周</p>
+              <p className='course-detail-line'>节次：第{course.lesson.startNode}节</p>
+            </article>
+          ))}
+        </div>
+      </Modal>
     </div>
   )
 }
