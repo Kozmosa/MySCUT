@@ -1,7 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import AppRoutes from './app/routes'
+import { useHardwareBackButton } from './platform/capacitor/useHardwareBackButton'
 
 function App() {
+  useHardwareBackButton()
+
   const location = useLocation()
   const isMineDetailPage = location.pathname.startsWith('/mine/')
   const isCoursesPage = location.pathname === '/courses'
