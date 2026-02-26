@@ -7,6 +7,7 @@ import {
   setStoredGlobalThemeMode,
 } from '../../../core/theme/globalThemeStorage'
 import type { GlobalThemeMode, ResolvedGlobalThemeMode } from '../../../core/theme/types'
+import { syncStatusBarStyleForTheme } from '../../capacitor/syncStatusBarStyle'
 
 const THEME_TRANSITION_CLASS = 'theme-transitioning'
 const THEME_TRANSITION_MS = 240
@@ -60,10 +61,15 @@ export function GlobalThemeProvider({ children }: GlobalThemeProviderProps) {
   const [mode, setModeState] = useState<GlobalThemeMode>(() => getPreferredGlobalThemeMode())
   const [resolvedMode, setResolvedMode] = useState<ResolvedGlobalThemeMode>(() => resolveGlobalThemeMode(mode))
 
+  const applyResolvedTheme = (nextResolvedMode: ResolvedGlobalThemeMode) => {
+    applyGlobalThemeVariables(nextResolvedMode)
+    void syncStatusBarStyleForTheme(nextResolvedMode)
+  }
+
   useEffect(() => {
     const nextResolvedMode = resolveGlobalThemeMode(mode)
     setResolvedMode(nextResolvedMode)
-    applyGlobalThemeVariables(nextResolvedMode)
+    applyResolvedTheme(nextResolvedMode)
   }, [mode])
 
   useEffect(() => {
@@ -77,7 +83,7 @@ export function GlobalThemeProvider({ children }: GlobalThemeProviderProps) {
       const nextResolvedMode = mediaQuery.matches ? 'dark' : 'light'
       startThemeTransition()
       setResolvedMode(nextResolvedMode)
-      applyGlobalThemeVariables(nextResolvedMode)
+      applyResolvedTheme(nextResolvedMode)
     }
 
     if (typeof mediaQuery.addEventListener === 'function') {
