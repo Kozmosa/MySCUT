@@ -4,13 +4,15 @@ function ManualPage() {
       <header className='schedule-settings-header'>
         <div>
           <p className='schedule-settings-title'>手册</p>
-          <p className='schedule-settings-subtitle'>文档内容即将接入</p>
+          <p className='schedule-settings-subtitle'>查看华工生存手册文档站</p>
         </div>
       </header>
 
       <div className='schedule-settings-content'>
         <div className='mine-button-group'>
-          <div className='mine-group-button'>敬请期待</div>
+          <a href='/docs/' className='mine-group-button'>
+            打开手册
+          </a>
         </div>
       </div>
     </section>
