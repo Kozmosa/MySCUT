@@ -36,10 +36,15 @@ function ensureDocsDependencies() {
     return
   }
 
-  run('npm install', docsProjectDir)
+  run('npm install --no-package-lock', docsProjectDir)
+}
+
+function cleanupDocsArtifacts() {
+  rmSync(docsPlatformDistDir, { recursive: true, force: true })
 }
 
 run('npm run build', rootDir)
 ensureDocsDependencies()
 run('npm run docs:build:platform', docsProjectDir)
 copyDocsDist()
+cleanupDocsArtifacts()
