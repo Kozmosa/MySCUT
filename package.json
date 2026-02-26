@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:android": "npm run build && npx cap sync android",
+    "build:full": "node scripts/buildFull.mjs",
+    "build:android": "npm run build:full && npx cap sync android",
     "preview": "vite preview"
   },
   "dependencies": {
