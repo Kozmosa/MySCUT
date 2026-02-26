@@ -11,6 +11,7 @@
 - `a8782dd`
 - `b705c1a`
 - `eddfe3e`
+- `69aaff7`
 
 ## 实现细节
 
@@ -19,6 +20,7 @@
 - 新增全量构建脚本 `build:full`：先构建 React 主站，再执行 submodule 的 `docs:build:platform`，最后将 `vue-platform-dist` 合并到主项目 `dist/docs`。
 - 更新 `build:android`，确保 Android 构建默认包含文档子站静态资源。
 - 将“手册”页面从占位态升级为入口态，点击可直接跳转 `/docs/`。
+- 构建结束后自动清理 submodule 的临时产物目录，避免 super project 出现 submodule 脏状态。
 
 ## 设计取舍
 
