@@ -1,0 +1,3 @@
+[submodule "external/survive-in-scut"]
+	path = external/survive-in-scut
+	url = https://github.com/Kozmosa/survive-in-scut.git
