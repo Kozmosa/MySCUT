@@ -153,6 +153,10 @@ Suggested structure as the app grows:
 - Daily logs: `YYYYMMDD.md`.
 - Persistent docs: uppercase underscore names (example: `API_CONTRACT.md`).
 - When conventions change, update docs in the same task.
+- Follow skill `保存实现文档` from `PROJECT_BASIS.md`:
+  - Implementation doc filename: `<Module>Impl<MMDD>.md` (example: `ThemeImpl0226.md`).
+  - Must include implementation date, related commit hash(es), and implementation details.
+  - Prefer Obsidian-style double links to related `LLM-Working/` sections.
 
 ## 9) Cursor / Copilot Rules
 

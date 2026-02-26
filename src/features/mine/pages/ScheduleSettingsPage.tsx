@@ -3,6 +3,8 @@ import { DatePicker, Modal, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { parseWakeupScheduleText } from '../../../core/schedule/importWakeup'
 import { loadScheduleData, saveScheduleData } from '../../../core/schedule/storage'
+import { SCHEDULE_THEME_PRESETS, type ScheduleThemeId } from '../../../core/schedule/themePresets'
+import { getScheduleThemePreset, setScheduleThemeId } from '../../../core/schedule/themeStorage'
 import { getSemesterStartDate, saveSemesterStartDate } from '../../../core/scheduleSettings'
 
 function ScheduleSettingsPage() {
@@ -10,9 +12,11 @@ function ScheduleSettingsPage() {
   const [messageApi, contextHolder] = message.useMessage()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDateModalOpen, setIsDateModalOpen] = useState(false)
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false)
   const [semesterStartDate, setSemesterStartDate] = useState(() => getSemesterStartDate())
   const [pendingDate, setPendingDate] = useState(semesterStartDate)
   const [scheduleName, setScheduleName] = useState(() => loadScheduleData()?.table.name ?? '')
+  const [themeName, setThemeName] = useState(() => getScheduleThemePreset().name)
 
   const handleClose = () => {
     if (window.history.length > 1) {
@@ -51,6 +55,31 @@ function ScheduleSettingsPage() {
 
   const handleOpenImport = () => {
     fileInputRef.current?.click()
+  }
+
+  const handleOpenThemeModal = () => {
+    setIsThemeModalOpen(true)
+  }
+
+  const handleCloseThemeModal = () => {
+    setIsThemeModalOpen(false)
+  }
+
+  const handleSelectTheme = (themeId: ScheduleThemeId) => {
+    const isSaved = setScheduleThemeId(themeId)
+    if (!isSaved) {
+      messageApi.error('课表配色保存失败，请稍后重试')
+      return
+    }
+
+    const selectedTheme = SCHEDULE_THEME_PRESETS.find((preset) => preset.id === themeId)
+    setThemeName(selectedTheme?.name ?? getScheduleThemePreset().name)
+    setIsThemeModalOpen(false)
+    messageApi.success('课表配色已更新')
+  }
+
+  const handleCustomTheme = () => {
+    messageApi.info('即将支持')
   }
 
   const handleImportSchedule = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -129,6 +158,17 @@ function ScheduleSettingsPage() {
         <p className='schedule-settings-current-date'>
           当前课表：{scheduleName || '未导入'}
         </p>
+
+        <div className='mine-button-group'>
+          <button
+            type='button'
+            className='mine-group-button schedule-settings-action'
+            onClick={handleOpenThemeModal}
+          >
+            设置课表配色
+          </button>
+        </div>
+        <p className='schedule-settings-current-date'>当前配色：{themeName}</p>
       </div>
 
       <input
@@ -159,6 +199,35 @@ function ScheduleSettingsPage() {
             setPendingDate(dateString)
           }}
         />
+      </Modal>
+
+      <Modal
+        title='设置课表配色'
+        open={isThemeModalOpen}
+        onCancel={handleCloseThemeModal}
+        footer={null}
+      >
+        <div className='schedule-theme-list'>
+          {SCHEDULE_THEME_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type='button'
+              className='schedule-theme-button'
+              style={{ backgroundColor: preset.primaryColor }}
+              onClick={() => handleSelectTheme(preset.id)}
+            >
+              {preset.name}
+            </button>
+          ))}
+
+          <button
+            type='button'
+            className='schedule-theme-button schedule-theme-button--custom'
+            onClick={handleCustomTheme}
+          >
+            自定义
+          </button>
+        </div>
       </Modal>
     </section>
   )

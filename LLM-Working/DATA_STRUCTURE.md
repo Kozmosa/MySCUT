@@ -137,3 +137,41 @@ type WeekCellCourse = {
 - `currentWeek >= startWeek`
 - `currentWeek <= endWeek`
 - `(currentWeek - startWeek) % weekStep === 0`
+
+## 7. 课表配色方案结构
+
+课表配色方案与课表数据本体解耦，独立存储于 `themePresets` 与 `themeStorage` 模块。
+
+### 7.1 配色预设结构
+
+```ts
+type ScheduleThemeId = 'skyBlue'
+
+type ScheduleThemePreset = {
+  id: ScheduleThemeId
+  name: string
+  primaryColor: string
+  mode: 'wakeup'
+  fallbackColors: string[]
+}
+```
+
+说明：
+
+- `id`：配色方案唯一标识
+- `name`：用于设置界面展示
+- `primaryColor`：用于配色按钮主题色展示
+- `mode`：颜色解析策略，目前为 `wakeup`（优先使用课程原始色）
+- `fallbackColors`：当课程无颜色或颜色无效时的兜底色组
+
+### 7.2 配色持久化
+
+- `localStorage` key：`scheduleThemeId`
+- 存储内容：当前选中的 `ScheduleThemeId`
+- 默认值：`skyBlue`
+
+### 7.3 当前预设
+
+- `天空蓝`（`skyBlue`）
+  - `primaryColor`: `#63a9ff`
+  - 对应当前 WakeUp 样例配色风格

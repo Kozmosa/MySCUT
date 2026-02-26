@@ -2,13 +2,13 @@ import { type TouchEvent, type TransitionEvent, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { buildWeekCellCourseMap, getCellCourses } from '../../core/schedule/selectors'
 import { loadScheduleData } from '../../core/schedule/storage'
+import { getScheduleThemePreset } from '../../core/schedule/themeStorage'
+import type { ScheduleThemePreset } from '../../core/schedule/themePresets'
 import type { WeekCellCourse } from '../../core/schedule/types'
 import { getSemesterStartDate } from '../../core/scheduleSettings'
 
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
 const LESSON_INDEXES = Array.from({ length: 11 }, (_, index) => index + 1)
-const FALLBACK_COLORS = ['#d9e8ff', '#d8f3e7', '#ffe6cc', '#ffd9e6', '#e5ddff', '#d8f4ff', '#fff1bf']
-
 function getCurrentDateText(date: Date) {
   return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
 }
@@ -27,9 +27,9 @@ function getWeekNumber(date: Date, startDateText: string) {
   return Math.max(1, week)
 }
 
-function getColorFromWakeup(color: string, fallbackIndex: number) {
+function getColorFromWakeup(color: string, fallbackColor: string) {
   if (!color) {
-    return FALLBACK_COLORS[fallbackIndex % FALLBACK_COLORS.length]
+    return fallbackColor
   }
 
   const value = color.trim()
@@ -46,17 +46,37 @@ function getColorFromWakeup(color: string, fallbackIndex: number) {
     return value
   }
 
-  return FALLBACK_COLORS[fallbackIndex % FALLBACK_COLORS.length]
+  return fallbackColor
 }
 
-function renderCourseCell(day: number, lessonNumber: number, cellCourses: WeekCellCourse[]) {
+function getCourseCardColor(
+  themePreset: ScheduleThemePreset,
+  day: number,
+  lessonNumber: number,
+  courseColor: string,
+) {
+  const fallbackColor = themePreset.fallbackColors[(day + lessonNumber) % themePreset.fallbackColors.length]
+
+  if (themePreset.mode === 'wakeup') {
+    return getColorFromWakeup(courseColor, fallbackColor)
+  }
+
+  return fallbackColor
+}
+
+function renderCourseCell(
+  themePreset: ScheduleThemePreset,
+  day: number,
+  lessonNumber: number,
+  cellCourses: WeekCellCourse[],
+) {
   if (cellCourses.length === 0) {
     return null
   }
 
   const firstCourse = cellCourses[0]
   const extraCount = cellCourses.length - 1
-  const backgroundColor = getColorFromWakeup(firstCourse.color, day + lessonNumber)
+  const backgroundColor = getCourseCardColor(themePreset, day, lessonNumber, firstCourse.color)
 
   return (
     <div className='course-card' style={{ backgroundColor }}>
@@ -81,6 +101,7 @@ function createSwipeState(currentWeek: number, direction: 'prev' | 'next' | null
 
 function renderScheduleTable(
   scheduleData: ReturnType<typeof loadScheduleData>,
+  themePreset: ScheduleThemePreset,
   weekNumber: number,
 ) {
   const today = new Date()
@@ -115,7 +136,7 @@ function renderScheduleTable(
 
               return (
                 <td key={`${lessonNumber}-${weekday}`} className='schedule-cell'>
-                  {renderCourseCell(day, lessonNumber, cellCourses)}
+                  {renderCourseCell(themePreset, day, lessonNumber, cellCourses)}
                 </td>
               )
             })}
@@ -138,6 +159,7 @@ function CoursesPage() {
   const [isResetting, setIsResetting] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const scheduleData = useMemo(() => loadScheduleData(), [])
+  const scheduleThemePreset = useMemo(() => getScheduleThemePreset(), [])
 
   const currentDate = new Date()
   const semesterStartDate = getSemesterStartDate()
@@ -300,6 +322,24 @@ function CoursesPage() {
 
   const trackStyle = isDragging ? { transform: `translateX(calc(-33.3333% + ${dragOffsetX}px))` } : undefined
 
+  const handleGoPrevWeek = () => {
+    if (isAnimating || isDragging || weekOffset <= minWeekOffset) {
+      return
+    }
+
+    setIsAnimating(true)
+    setSwipeDirection('prev')
+  }
+
+  const handleGoNextWeek = () => {
+    if (isAnimating || isDragging) {
+      return
+    }
+
+    setIsAnimating(true)
+    setSwipeDirection('next')
+  }
+
   return (
     <div className='courses-page'>
       <header className='courses-header'>
@@ -308,16 +348,38 @@ function CoursesPage() {
           <p className='courses-week'>第 {currentWeek} 周</p>
         </div>
 
-        <button
-          type='button'
-          className='courses-menu-button'
-          aria-label='更多操作'
-          onClick={() => navigate('/mine/schedule-settings')}
-        >
-          <span className='courses-menu-dots' aria-hidden='true'>
-            ...
-          </span>
-        </button>
+        <div className='courses-actions'>
+          <button
+            type='button'
+            className='courses-menu-button'
+            aria-label='上一周'
+            onClick={handleGoPrevWeek}
+          >
+            <span className='courses-menu-arrow' aria-hidden='true'>
+              {'<'}
+            </span>
+          </button>
+          <button
+            type='button'
+            className='courses-menu-button'
+            aria-label='下一周'
+            onClick={handleGoNextWeek}
+          >
+            <span className='courses-menu-arrow' aria-hidden='true'>
+              {'>'}
+            </span>
+          </button>
+          <button
+            type='button'
+            className='courses-menu-button'
+            aria-label='更多操作'
+            onClick={() => navigate('/mine/schedule-settings')}
+          >
+            <span className='courses-menu-dots' aria-hidden='true'>
+              ...
+            </span>
+          </button>
+        </div>
       </header>
 
       <section
@@ -331,17 +393,17 @@ function CoursesPage() {
         <div className={trackClassName} style={trackStyle} onTransitionEnd={handleSwipeTransitionEnd}>
           <div className='schedule-swipe-page'>
             <div className='schedule-scroll-area'>
-              {renderScheduleTable(scheduleData, swipeState.prevWeek)}
+              {renderScheduleTable(scheduleData, scheduleThemePreset, swipeState.prevWeek)}
             </div>
           </div>
           <div className='schedule-swipe-page'>
             <div className='schedule-scroll-area'>
-              {renderScheduleTable(scheduleData, swipeState.currentWeek)}
+              {renderScheduleTable(scheduleData, scheduleThemePreset, swipeState.currentWeek)}
             </div>
           </div>
           <div className='schedule-swipe-page'>
             <div className='schedule-scroll-area'>
-              {renderScheduleTable(scheduleData, swipeState.nextWeek)}
+              {renderScheduleTable(scheduleData, scheduleThemePreset, swipeState.nextWeek)}
             </div>
           </div>
         </div>
