@@ -8,11 +8,12 @@ function App() {
   const location = useLocation()
   const isMineDetailPage = location.pathname.startsWith('/mine/')
   const isCoursesPage = location.pathname === '/courses'
+  const isManualPage = location.pathname === '/manual'
 
   return (
     <div className='app-shell'>
       <main
-        className={`page-content ${isMineDetailPage ? 'page-content--fullscreen' : ''} ${isCoursesPage ? 'page-content--courses' : ''}`}
+        className={`page-content ${isMineDetailPage ? 'page-content--fullscreen' : ''} ${isCoursesPage ? 'page-content--courses' : ''} ${isManualPage ? 'page-content--manual' : ''}`}
       >
         <AppRoutes />
       </main>
