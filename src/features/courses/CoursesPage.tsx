@@ -1,17 +1,13 @@
 import { type TouchEvent, type TransitionEvent, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { buildWeekCellCourseMap, getCellCourses } from '../../core/schedule/selectors'
+import { loadScheduleData } from '../../core/schedule/storage'
+import type { WeekCellCourse } from '../../core/schedule/types'
 import { getSemesterStartDate } from '../../core/scheduleSettings'
 
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
 const LESSON_INDEXES = Array.from({ length: 11 }, (_, index) => index + 1)
-const COURSE_BLOCK_COLORS = [
-  'course-block--blue',
-  'course-block--green',
-  'course-block--orange',
-  'course-block--rose',
-  'course-block--purple',
-  'course-block--cyan',
-  'course-block--yellow',
-]
+const FALLBACK_COLORS = ['#d9e8ff', '#d8f3e7', '#ffe6cc', '#ffd9e6', '#e5ddff', '#d8f4ff', '#fff1bf']
 
 function getCurrentDateText(date: Date) {
   return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
@@ -31,6 +27,46 @@ function getWeekNumber(date: Date, startDateText: string) {
   return Math.max(1, week)
 }
 
+function getColorFromWakeup(color: string, fallbackIndex: number) {
+  if (!color) {
+    return FALLBACK_COLORS[fallbackIndex % FALLBACK_COLORS.length]
+  }
+
+  const value = color.trim()
+
+  if (/^#[0-9a-fA-F]{8}$/.test(value)) {
+    const alpha = Number.parseInt(value.slice(1, 3), 16) / 255
+    const red = Number.parseInt(value.slice(3, 5), 16)
+    const green = Number.parseInt(value.slice(5, 7), 16)
+    const blue = Number.parseInt(value.slice(7, 9), 16)
+    return `rgba(${red}, ${green}, ${blue}, ${alpha.toFixed(3)})`
+  }
+
+  if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+    return value
+  }
+
+  return FALLBACK_COLORS[fallbackIndex % FALLBACK_COLORS.length]
+}
+
+function renderCourseCell(day: number, lessonNumber: number, cellCourses: WeekCellCourse[]) {
+  if (cellCourses.length === 0) {
+    return null
+  }
+
+  const firstCourse = cellCourses[0]
+  const extraCount = cellCourses.length - 1
+  const backgroundColor = getColorFromWakeup(firstCourse.color, day + lessonNumber)
+
+  return (
+    <div className='course-card' style={{ backgroundColor }}>
+      <p className='course-card-name'>{firstCourse.name}</p>
+      <p className='course-card-meta'>{firstCourse.room || firstCourse.teacher || '-'}</p>
+      {extraCount > 0 && <span className='course-card-more'>+{extraCount}</span>}
+    </div>
+  )
+}
+
 function createSwipeState(currentWeek: number, direction: 'prev' | 'next' | null) {
   const prevWeek = Math.max(1, currentWeek - 1)
   const nextWeek = currentWeek + 1
@@ -43,9 +79,13 @@ function createSwipeState(currentWeek: number, direction: 'prev' | 'next' | null
   }
 }
 
-function renderScheduleTable(weekNumber: number) {
+function renderScheduleTable(
+  scheduleData: ReturnType<typeof loadScheduleData>,
+  weekNumber: number,
+) {
   const today = new Date()
   const monthLabel = `${today.getMonth() + 1}月`
+  const weekCellMap = scheduleData ? buildWeekCellCourseMap(scheduleData, weekNumber) : new Map()
 
   return (
     <table className='schedule-table'>
@@ -70,11 +110,12 @@ function renderScheduleTable(weekNumber: number) {
             </th>
 
             {WEEKDAY_LABELS.map((weekday, dayIndex) => {
-              const colorClass = COURSE_BLOCK_COLORS[(weekNumber + lessonNumber + dayIndex) % COURSE_BLOCK_COLORS.length]
+              const day = dayIndex + 1
+              const cellCourses = getCellCourses(weekCellMap, day, lessonNumber)
 
               return (
                 <td key={`${lessonNumber}-${weekday}`} className='schedule-cell'>
-                  <div className={`course-block ${colorClass}`} />
+                  {renderCourseCell(day, lessonNumber, cellCourses)}
                 </td>
               )
             })}
@@ -86,6 +127,7 @@ function renderScheduleTable(weekNumber: number) {
 }
 
 function CoursesPage() {
+  const navigate = useNavigate()
   const [weekOffset, setWeekOffset] = useState(0)
   const [swipeDirection, setSwipeDirection] = useState<'prev' | 'next' | null>(null)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
@@ -95,6 +137,7 @@ function CoursesPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const scheduleData = useMemo(() => loadScheduleData(), [])
 
   const currentDate = new Date()
   const semesterStartDate = getSemesterStartDate()
@@ -265,8 +308,15 @@ function CoursesPage() {
           <p className='courses-week'>第 {currentWeek} 周</p>
         </div>
 
-        <button type='button' className='courses-menu-button' aria-label='更多操作'>
-          ...
+        <button
+          type='button'
+          className='courses-menu-button'
+          aria-label='更多操作'
+          onClick={() => navigate('/mine/schedule-settings')}
+        >
+          <span className='courses-menu-dots' aria-hidden='true'>
+            ...
+          </span>
         </button>
       </header>
 
@@ -280,13 +330,19 @@ function CoursesPage() {
       >
         <div className={trackClassName} style={trackStyle} onTransitionEnd={handleSwipeTransitionEnd}>
           <div className='schedule-swipe-page'>
-            <div className='schedule-scroll-area'>{renderScheduleTable(swipeState.prevWeek)}</div>
+            <div className='schedule-scroll-area'>
+              {renderScheduleTable(scheduleData, swipeState.prevWeek)}
+            </div>
           </div>
           <div className='schedule-swipe-page'>
-            <div className='schedule-scroll-area'>{renderScheduleTable(swipeState.currentWeek)}</div>
+            <div className='schedule-scroll-area'>
+              {renderScheduleTable(scheduleData, swipeState.currentWeek)}
+            </div>
           </div>
           <div className='schedule-swipe-page'>
-            <div className='schedule-scroll-area'>{renderScheduleTable(swipeState.nextWeek)}</div>
+            <div className='schedule-scroll-area'>
+              {renderScheduleTable(scheduleData, swipeState.nextWeek)}
+            </div>
           </div>
         </div>
       </section>
