@@ -1,6 +1,7 @@
 import { type ChangeEvent, useEffect, useRef, useState } from 'react'
 import { DatePicker, Input, Modal, Select, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import { parseQmsScheduleText } from '../../../core/schedule/importQms'
 import { parseScutScheduleHtml } from '../../../core/schedule/importScutHtml'
 import { parseWakeupScheduleText } from '../../../core/schedule/importWakeup'
 import {
@@ -43,9 +44,11 @@ function ScheduleSettingsPage() {
   const navigate = useNavigate()
   const [messageApi, contextHolder] = message.useMessage()
   const wakeupFileInputRef = useRef<HTMLInputElement>(null)
+  const qmsFileInputRef = useRef<HTMLInputElement>(null)
   const htmlFileInputRef = useRef<HTMLInputElement>(null)
   const [isDateModalOpen, setIsDateModalOpen] = useState(false)
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isHtmlImportMethodModalOpen, setIsHtmlImportMethodModalOpen] = useState(false)
   const [htmlImportMethod, setHtmlImportMethod] = useState<HtmlImportMethod>('file')
   const [isHtmlInputModalOpen, setIsHtmlInputModalOpen] = useState(false)
@@ -157,7 +160,27 @@ function ScheduleSettingsPage() {
   }
 
   const handleOpenImport = () => {
+    setIsImportModalOpen(true)
+  }
+
+  const handleImportWakeupEntry = () => {
+    setIsImportModalOpen(false)
     wakeupFileInputRef.current?.click()
+  }
+
+  const handleImportHtmlEntry = () => {
+    setIsImportModalOpen(false)
+    handleOpenHtmlImportMethod()
+  }
+
+  const handleImportPdfEntry = () => {
+    setIsImportModalOpen(false)
+    navigate('/mine/import-scut-pdf')
+  }
+
+  const handleImportQmsEntry = () => {
+    setIsImportModalOpen(false)
+    qmsFileInputRef.current?.click()
   }
 
   const handleOpenHtmlImportMethod = () => {
@@ -267,6 +290,46 @@ function ScheduleSettingsPage() {
       messageApi.success('课表导入成功')
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '课表导入失败'
+      messageApi.error(errorMessage)
+    }
+
+    event.target.value = ''
+  }
+
+  const handleImportQms = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    try {
+      const content = await file.text()
+      const parsedQms = parseQmsScheduleText(content)
+      const nextThemeId = getScheduleThemePresetById(parsedQms.themeId).id
+      const nextSemesterStartDate = parsedQms.semesterStartDate || semesterStartDate
+
+      const result = saveScheduleDataWithOptions(parsedQms.scheduleData, {
+        themeId: nextThemeId,
+        semesterStartDate: nextSemesterStartDate,
+        preferredName: parsedQms.preferredName,
+        setActive: true,
+      })
+
+      if (!result.ok) {
+        messageApi.error('QMS 课表保存失败，请检查浏览器存储空间')
+        event.target.value = ''
+        return
+      }
+
+      setScheduleThemeId(nextThemeId)
+      const selectedTheme = getScheduleThemePresetById(nextThemeId)
+      setThemeName(selectedTheme.name)
+      saveSemesterStartDate(nextSemesterStartDate)
+      setSemesterStartDate(nextSemesterStartDate)
+      refreshScheduleState()
+      messageApi.success('QMS 课表导入成功')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'QMS 课表导入失败'
       messageApi.error(errorMessage)
     }
 
@@ -422,22 +485,12 @@ function ScheduleSettingsPage() {
             className='mine-group-button schedule-settings-action'
             onClick={handleOpenImport}
           >
-            导入 WakeUp 课表
+            导入课表
           </button>
         </div>
         <p className='schedule-settings-current-date'>
           当前课表：{scheduleName || '未导入'}
         </p>
-
-        <div className='mine-button-group'>
-          <button
-            type='button'
-            className='mine-group-button schedule-settings-action'
-            onClick={handleOpenHtmlImportMethod}
-          >
-            从华工教务HTML导入
-          </button>
-        </div>
 
         <div className='mine-button-group'>
           <button
@@ -477,6 +530,14 @@ function ScheduleSettingsPage() {
         accept='.wakeup_schedule,.json,.txt'
         className='schedule-settings-file-input'
         onChange={handleImportSchedule}
+      />
+
+      <input
+        ref={qmsFileInputRef}
+        type='file'
+        accept='.qms,.json'
+        className='schedule-settings-file-input'
+        onChange={handleImportQms}
       />
 
       <input
@@ -534,6 +595,28 @@ function ScheduleSettingsPage() {
             onClick={handleCustomTheme}
           >
             自定义
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        title='导入课表'
+        open={isImportModalOpen}
+        onCancel={() => setIsImportModalOpen(false)}
+        footer={null}
+      >
+        <div className='schedule-import-list'>
+          <button type='button' className='schedule-import-item' onClick={handleImportWakeupEntry}>
+            从 WakeUp 导入
+          </button>
+          <button type='button' className='schedule-import-item' onClick={handleImportHtmlEntry}>
+            从华工教务HTML导入
+          </button>
+          <button type='button' className='schedule-import-item' onClick={handleImportPdfEntry}>
+            从华工教务PDF导入
+          </button>
+          <button type='button' className='schedule-import-item' onClick={handleImportQmsEntry}>
+            从启梦文件QMS导入
           </button>
         </div>
       </Modal>

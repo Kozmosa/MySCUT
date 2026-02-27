@@ -802,6 +802,29 @@ body {
   border: 1px solid var(--border-strong);
 }
 
+.schedule-import-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.schedule-import-item {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 14px;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.schedule-import-item:active {
+  background: var(--bg-surface-muted);
+}
+
 .schedule-switch-list {
   display: flex;
   flex-direction: column;
