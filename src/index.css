@@ -692,6 +692,21 @@ body {
   color: var(--text-secondary);
 }
 
+.mine-setting-row {
+  min-height: 86px;
+  padding: 14px 16px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.mine-setting-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
 .schedule-settings-page {
   height: 100%;
   min-height: 100vh;
