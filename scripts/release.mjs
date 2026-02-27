@@ -12,6 +12,8 @@ const packageJsonPath = resolve(rootDir, 'package.json')
 const versionsJsonPath = resolve(rootDir, 'versions.json')
 const apkOutputDir = resolve(rootDir, 'android/app/build/outputs/apk')
 const releaseArtifactDir = rootDir
+const manualSubmoduleDir = resolve(rootDir, 'external/survive-in-scut')
+const manualRootAssetsDir = resolve(manualSubmoduleDir, 'docs/.vuepress/public/root-assets')
 
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/
 
@@ -20,6 +22,13 @@ function run(command, cwd = rootDir) {
     cwd,
     stdio: 'inherit',
   })
+}
+
+function runSilently(command, cwd = rootDir) {
+  return execSync(command, {
+    cwd,
+    encoding: 'utf8',
+  }).trim()
 }
 
 function readJson(filePath) {
@@ -258,6 +267,55 @@ function ensureNoReleaseAssetConflict(filePath) {
   }
 }
 
+function syncLatestAssetsToManual({ apkPath, versionsPath }) {
+  if (!existsSync(manualRootAssetsDir)) {
+    mkdirSync(manualRootAssetsDir, { recursive: true })
+  }
+
+  const latestApkPath = resolve(manualRootAssetsDir, 'qmm-latest.apk')
+  const manualVersionsPath = resolve(manualRootAssetsDir, 'versions.json')
+
+  cpSync(apkPath, latestApkPath)
+  cpSync(versionsPath, manualVersionsPath)
+
+  return {
+    latestApkPath,
+    manualVersionsPath,
+  }
+}
+
+function ensureManualMainBranch() {
+  run('git fetch origin', manualSubmoduleDir)
+  run('git checkout main', manualSubmoduleDir)
+  run('git pull --ff-only origin main', manualSubmoduleDir)
+}
+
+function commitAndPushManualAssets({ version }) {
+  const relativeApkPath = 'docs/.vuepress/public/root-assets/qmm-latest.apk'
+  const relativeVersionsPath = 'docs/.vuepress/public/root-assets/versions.json'
+
+  run(`git add "${relativeApkPath}" "${relativeVersionsPath}"`, manualSubmoduleDir)
+
+  let hasChanges = true
+  try {
+    execSync('git diff --cached --quiet', {
+      cwd: manualSubmoduleDir,
+      stdio: 'pipe',
+    })
+    hasChanges = false
+  } catch {
+    hasChanges = true
+  }
+
+  if (!hasChanges) {
+    console.log('Manual root-assets unchanged, skip submodule commit.')
+    return
+  }
+
+  run(`git commit -m "chore: sync release root-assets for v${version}"`, manualSubmoduleDir)
+  run('git push origin main', manualSubmoduleDir)
+}
+
 function updateVersionsJson({ version, tag, owner, repo }) {
   const baseDownloadUrl = `https://github.com/${owner}/${repo}/releases/download/${tag}`
   const apkName = `qmm-v${version}.apk`
@@ -467,6 +525,11 @@ async function main() {
   const tag = `v${nextVersion}`
   ensureTagNotExists(tag)
 
+  const rootBranch = runSilently('git rev-parse --abbrev-ref HEAD', rootDir)
+  if (rootBranch !== 'main') {
+    throw new Error(`Release must run on main branch. Current branch: ${rootBranch}`)
+  }
+
   console.log(`Starting release process for version ${nextVersion}`)
 
   console.log('Updating submodules to latest remote commits...')
@@ -503,6 +566,14 @@ async function main() {
     repo,
   })
   console.log('Updated versions.json')
+
+  console.log('Syncing latest release assets to manual root-assets...')
+  ensureManualMainBranch()
+  syncLatestAssetsToManual({
+    apkPath: renamedApkPath,
+    versionsPath: versionsJsonPath,
+  })
+  commitAndPushManualAssets({ version: nextVersion })
 
   stageCommitAndTag({
     version: nextVersion,
