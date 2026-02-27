@@ -2,11 +2,13 @@ import { ConfigProvider, theme as antdTheme } from 'antd'
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react'
 import { getGlobalThemePreset } from '../../../core/theme/globalThemePresets'
 import {
+  getPreferredGlobalThemeFamily,
   getPreferredGlobalThemeMode,
   resolveGlobalThemeMode,
+  setStoredGlobalThemeFamily,
   setStoredGlobalThemeMode,
 } from '../../../core/theme/globalThemeStorage'
-import type { GlobalThemeMode, ResolvedGlobalThemeMode } from '../../../core/theme/types'
+import type { GlobalThemeFamily, GlobalThemeMode, ResolvedGlobalThemeMode } from '../../../core/theme/types'
 import { syncStatusBarStyleForTheme } from '../../capacitor/syncStatusBarStyle'
 
 const THEME_TRANSITION_CLASS = 'theme-transitioning'
@@ -14,19 +16,21 @@ const THEME_TRANSITION_MS = 240
 let themeTransitionTimer: number | null = null
 
 type GlobalThemeContextValue = {
+  themeFamily: GlobalThemeFamily
   mode: GlobalThemeMode
   resolvedMode: ResolvedGlobalThemeMode
+  setThemeFamily: (family: GlobalThemeFamily) => void
   setMode: (mode: GlobalThemeMode) => void
   toggleLightDark: () => void
 }
 
 const GlobalThemeContext = createContext<GlobalThemeContextValue | null>(null)
 
-function applyGlobalThemeVariables(resolvedMode: ResolvedGlobalThemeMode) {
-  const preset = getGlobalThemePreset(resolvedMode)
+function applyGlobalThemeVariables(themeFamily: GlobalThemeFamily, resolvedMode: ResolvedGlobalThemeMode) {
+  const preset = getGlobalThemePreset(resolvedMode, themeFamily)
   const root = document.documentElement
 
-  root.dataset.globalTheme = resolvedMode
+  root.dataset.globalTheme = `${themeFamily}-${resolvedMode}`
   root.style.colorScheme = resolvedMode
 
   for (const [name, value] of Object.entries(preset.cssVariables)) {
@@ -58,11 +62,12 @@ type GlobalThemeProviderProps = {
 }
 
 export function GlobalThemeProvider({ children }: GlobalThemeProviderProps) {
+  const [themeFamily, setThemeFamilyState] = useState<GlobalThemeFamily>(() => getPreferredGlobalThemeFamily())
   const [mode, setModeState] = useState<GlobalThemeMode>(() => getPreferredGlobalThemeMode())
   const [resolvedMode, setResolvedMode] = useState<ResolvedGlobalThemeMode>(() => resolveGlobalThemeMode(mode))
 
   const applyResolvedTheme = (nextResolvedMode: ResolvedGlobalThemeMode) => {
-    applyGlobalThemeVariables(nextResolvedMode)
+    applyGlobalThemeVariables(themeFamily, nextResolvedMode)
     void syncStatusBarStyleForTheme(nextResolvedMode)
   }
 
@@ -70,7 +75,7 @@ export function GlobalThemeProvider({ children }: GlobalThemeProviderProps) {
     const nextResolvedMode = resolveGlobalThemeMode(mode)
     setResolvedMode(nextResolvedMode)
     applyResolvedTheme(nextResolvedMode)
-  }, [mode])
+  }, [mode, themeFamily])
 
   useEffect(() => {
     if (mode !== 'system' || typeof window.matchMedia !== 'function') {
@@ -105,6 +110,12 @@ export function GlobalThemeProvider({ children }: GlobalThemeProviderProps) {
     setStoredGlobalThemeMode(nextMode)
   }
 
+  const setThemeFamily = (nextThemeFamily: GlobalThemeFamily) => {
+    startThemeTransition()
+    setThemeFamilyState(nextThemeFamily)
+    setStoredGlobalThemeFamily(nextThemeFamily)
+  }
+
   const toggleLightDark = () => {
     setMode(resolvedMode === 'dark' ? 'light' : 'dark')
   }
@@ -113,13 +124,15 @@ export function GlobalThemeProvider({ children }: GlobalThemeProviderProps) {
     () => ({
       mode,
       resolvedMode,
+      themeFamily,
+      setThemeFamily,
       setMode,
       toggleLightDark,
     }),
-    [mode, resolvedMode],
+    [mode, resolvedMode, themeFamily],
   )
 
-  const preset = getGlobalThemePreset(resolvedMode)
+  const preset = getGlobalThemePreset(resolvedMode, themeFamily)
   const algorithm = resolvedMode === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm
 
   return (
