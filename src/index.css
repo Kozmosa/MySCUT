@@ -775,6 +775,34 @@ body {
   gap: 12px;
 }
 
+.mine-todo-section {
+  margin-top: 14px;
+}
+
+.mine-todo-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.mine-todo-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mine-todo-list li label {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 .mine-setting-row {
   min-height: 86px;
   padding: 14px 16px;
