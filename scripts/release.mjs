@@ -1,4 +1,4 @@
-import { execSync, spawnSync } from 'node:child_process'
+import { execSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, basename, extname, resolve } from 'node:path'
 import readline from 'node:readline'
@@ -11,7 +11,7 @@ const rootDir = resolve(currentDir, '..')
 const packageJsonPath = resolve(rootDir, 'package.json')
 const versionsJsonPath = resolve(rootDir, 'versions.json')
 const apkOutputDir = resolve(rootDir, 'android/app/build/outputs/apk')
-const releaseArtifactDir = resolve(rootDir, 'dist/release')
+const releaseArtifactDir = rootDir
 
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/
 
@@ -184,16 +184,6 @@ function extractRepoInfo() {
   }
 
   throw new Error(`Unsupported GitHub remote URL: ${remoteUrl}`)
-}
-
-function hasGhCli() {
-  const result = spawnSync('gh', ['--version'], {
-    cwd: rootDir,
-    stdio: 'ignore',
-    shell: process.platform === 'win32',
-  })
-
-  return result.status === 0
 }
 
 function askYesNo(prompt) {
@@ -429,8 +419,9 @@ function createOrUpdateReleaseWithGh({ tag, title, assetFiles }) {
   run(`gh release upload ${tag} ${quotedAssets} --clobber`, rootDir)
 }
 
-function stageCommitAndTag({ version, tag }) {
-  run('git add package.json versions.json', rootDir)
+function stageCommitAndTag({ version, tag, apkPath }) {
+  const apkName = basename(apkPath)
+  run(`git add package.json versions.json "${apkName}"`, rootDir)
   run(`git commit -m "chore(release): prepare v${version}"`, rootDir)
   run(`git tag ${tag}`, rootDir)
   run('git push', rootDir)
@@ -513,36 +504,15 @@ async function main() {
   })
   console.log('Updated versions.json')
 
-  stageCommitAndTag({ version: nextVersion, tag })
-
-  const releaseTitle = `Release ${tag}`
-  const assetFiles = [
-    renamedApkPath,
-    versionsJsonPath,
-  ]
-
-  if (hasGhCli()) {
-    console.log('Publishing release via GitHub CLI...')
-    createOrUpdateReleaseWithGh({
-      tag,
-      title: releaseTitle,
-      assetFiles,
-    })
-  } else {
-    console.log('GitHub CLI not found. Falling back to GitHub REST API...')
-    const token = await resolveGithubToken()
-    await createOrUpdateReleaseWithApi({
-      token,
-      owner,
-      repo,
-      tag,
-      title: releaseTitle,
-      assetFiles,
-    })
-  }
+  stageCommitAndTag({
+    version: nextVersion,
+    tag,
+    apkPath: renamedApkPath,
+  })
 
   const releaseUrl = `https://github.com/${owner}/${repo}/releases/tag/${tag}`
-  console.log(`Release completed successfully: ${releaseUrl}`)
+  console.log('Release commit and tag pushed. GitHub Actions will create the release and upload assets.')
+  console.log(`Release URL: ${releaseUrl}`)
 }
 
 await main()

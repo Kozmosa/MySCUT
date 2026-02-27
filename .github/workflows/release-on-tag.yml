@@ -18,8 +18,28 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository at release ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Resolve release assets
+        id: release_meta
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          APK_NAME="qmm-v${VERSION}.apk"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "apk=$APK_NAME" >> "$GITHUB_OUTPUT"
+          test -f "$APK_NAME"
+          test -f "versions.json"
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          tag_name: ${{ steps.release_meta.outputs.tag }}
           generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            ${{ steps.release_meta.outputs.apk }}
+            versions.json
