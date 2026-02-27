@@ -7,6 +7,7 @@
     "dev": "vite",
     "build:todo-snapshot": "node scripts/generateTodoSnapshot.mjs",
     "release:prepare-manual": "node scripts/prepareReleaseManualSubmodule.mjs",
+    "release": "node scripts/release.mjs",
     "build": "node scripts/buildApp.mjs",
     "build:full": "node scripts/buildFull.mjs",
     "build:android": "npm run build:full",
