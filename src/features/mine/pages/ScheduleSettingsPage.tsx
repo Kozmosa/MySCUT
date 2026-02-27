@@ -6,9 +6,11 @@ import { parseWakeupScheduleText } from '../../../core/schedule/importWakeup'
 import {
   listSavedSchedules,
   loadActiveScheduleEntry,
+  loadSavedScheduleById,
   saveScheduleDataWithOptions,
   switchActiveSchedule,
 } from '../../../core/schedule/storage'
+import { buildQmsExportText, buildWakeupExportText, downloadTextFile } from '../../../core/schedule/export'
 import { getScheduleThemePresetById, SCHEDULE_THEME_PRESETS, type ScheduleThemeId } from '../../../core/schedule/themePresets'
 import { getScheduleThemeId, getScheduleThemePreset, setScheduleThemeId } from '../../../core/schedule/themeStorage'
 import { getSemesterStartDate, saveSemesterStartDate } from '../../../core/scheduleSettings'
@@ -18,6 +20,7 @@ import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../../co
 const { TextArea } = Input
 
 type HtmlImportMethod = 'file' | 'clipboard' | 'input'
+type ScheduleExportFormat = 'wakeup' | 'qms'
 
 type SavedScheduleItem = ReturnType<typeof listSavedSchedules>[number]
 
@@ -25,6 +28,16 @@ type TransitionStage = 'entering' | 'entered' | 'closing'
 
 const ENTER_ANIMATION_FRAME_MS = 16
 const CLOSE_TRANSITION_MS = 220
+
+function formatExportTimestamp(date: Date) {
+  const pad = (value: number) => value.toString().padStart(2, '0')
+
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
+}
+
+function sanitizeFileName(value: string) {
+  return value.replace(/[\\/:*?"<>|]/g, '_').trim() || 'schedule'
+}
 
 function ScheduleSettingsPage() {
   const navigate = useNavigate()
@@ -38,6 +51,10 @@ function ScheduleSettingsPage() {
   const [isHtmlInputModalOpen, setIsHtmlInputModalOpen] = useState(false)
   const [htmlInputText, setHtmlInputText] = useState('')
   const [isScheduleSwitchModalOpen, setIsScheduleSwitchModalOpen] = useState(false)
+  const [isScheduleExportModalOpen, setIsScheduleExportModalOpen] = useState(false)
+  const [isExportFormatModalOpen, setIsExportFormatModalOpen] = useState(false)
+  const [exportTargetScheduleId, setExportTargetScheduleId] = useState('')
+  const [exportFormat, setExportFormat] = useState<ScheduleExportFormat>('wakeup')
   const [savedSchedules, setSavedSchedules] = useState<SavedScheduleItem[]>(() => listSavedSchedules())
   const [semesterStartDate, setSemesterStartDate] = useState(() => getSemesterStartDate())
   const [pendingDate, setPendingDate] = useState(semesterStartDate)
@@ -181,6 +198,14 @@ function ScheduleSettingsPage() {
     setIsThemeModalOpen(true)
   }
 
+  const handleOpenScheduleExport = () => {
+    const schedules = listSavedSchedules()
+    setSavedSchedules(schedules)
+    setExportTargetScheduleId('')
+    setExportFormat('wakeup')
+    setIsScheduleExportModalOpen(true)
+  }
+
   const handleCloseThemeModal = () => {
     setIsThemeModalOpen(false)
   }
@@ -315,6 +340,49 @@ function ScheduleSettingsPage() {
     messageApi.success('课表切换成功')
   }
 
+  const handleConfirmExportScheduleTarget = () => {
+    if (!exportTargetScheduleId) {
+      messageApi.error('请先选择需要导出的课表')
+      return
+    }
+
+    setIsScheduleExportModalOpen(false)
+    setIsExportFormatModalOpen(true)
+  }
+
+  const handleConfirmExportFormat = () => {
+    if (!exportTargetScheduleId) {
+      messageApi.error('未选择导出课表，请重新选择')
+      setIsExportFormatModalOpen(false)
+      return
+    }
+
+    const targetSchedule = loadSavedScheduleById(exportTargetScheduleId)
+    if (!targetSchedule) {
+      messageApi.error('未找到目标课表，请重新选择')
+      setIsExportFormatModalOpen(false)
+      return
+    }
+
+    try {
+      const baseFileName = `${sanitizeFileName(targetSchedule.name)}_${formatExportTimestamp(new Date())}`
+
+      if (exportFormat === 'wakeup') {
+        const wakeupText = buildWakeupExportText(targetSchedule)
+        downloadTextFile(`${baseFileName}.wakeup_schedule`, wakeupText)
+      } else {
+        const qmsText = buildQmsExportText(targetSchedule)
+        downloadTextFile(`${baseFileName}.qms`, qmsText, 'application/json;charset=utf-8')
+      }
+
+      messageApi.success('课表导出成功')
+      setIsExportFormatModalOpen(false)
+      setExportTargetScheduleId('')
+    } catch {
+      messageApi.error('课表导出失败，请稍后重试')
+    }
+  }
+
   return (
     <section className={`schedule-settings-page settings-view-transition settings-view-transition--${transitionStage}`}>
       {contextHolder}
@@ -378,6 +446,16 @@ function ScheduleSettingsPage() {
             onClick={handleOpenScheduleSwitch}
           >
             切换课表
+          </button>
+        </div>
+
+        <div className='mine-button-group'>
+          <button
+            type='button'
+            className='mine-group-button schedule-settings-action'
+            onClick={handleOpenScheduleExport}
+          >
+            导出课表
           </button>
         </div>
 
@@ -521,6 +599,54 @@ function ScheduleSettingsPage() {
             ))
           )}
         </div>
+      </Modal>
+
+      <Modal
+        title='导出课表'
+        open={isScheduleExportModalOpen}
+        onOk={handleConfirmExportScheduleTarget}
+        onCancel={() => setIsScheduleExportModalOpen(false)}
+        okText='下一步'
+        cancelText='取消'
+      >
+        <div className='schedule-switch-list'>
+          {savedSchedules.length === 0 ? (
+            <p className='schedule-switch-empty'>暂无已保存课表</p>
+          ) : (
+            savedSchedules.map((schedule) => (
+              <button
+                key={schedule.id}
+                type='button'
+                className={`schedule-switch-item ${schedule.id === exportTargetScheduleId ? 'is-active' : ''}`}
+                onClick={() => setExportTargetScheduleId(schedule.id)}
+              >
+                <span>{schedule.name}</span>
+                <span className='schedule-switch-meta'>
+                  来源：{schedule.source === 'wakeup' ? 'WakeUp' : '华工教务HTML'}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        title='选择导出格式'
+        open={isExportFormatModalOpen}
+        onOk={handleConfirmExportFormat}
+        onCancel={() => setIsExportFormatModalOpen(false)}
+        okText='导出'
+        cancelText='取消'
+      >
+        <Select
+          style={{ width: '100%' }}
+          value={exportFormat}
+          onChange={(value) => setExportFormat(value)}
+          options={[
+            { value: 'wakeup', label: 'WakeUp 兼容格式（.wakeup_schedule）' },
+            { value: 'qms', label: '启梦格式 QMS（.qms）' },
+          ]}
+        />
       </Modal>
     </section>
   )
