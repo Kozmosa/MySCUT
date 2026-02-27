@@ -1,9 +1,10 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
-import { Modal, Switch } from 'antd'
+import { Checkbox, Modal, Switch } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { getUseLocalManual, setUseLocalManual } from '../../core/manual/manualSourceStorage'
 import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../core/navigation/animatedBack'
 import { GLOBAL_THEME_FAMILY_OPTIONS } from '../../core/theme/globalThemePresets'
+import { APP_TODO_ITEMS, MANUAL_TODO_ITEMS, TODO_SNAPSHOT_GENERATED_AT } from '../../generated/todoSnapshot'
 import { useGlobalTheme } from '../../platform/web/theme/GlobalThemeProvider'
 
 type MineDetailPageProps = {
@@ -84,6 +85,7 @@ function MineDetailPage({ title }: MineDetailPageProps) {
   const [isLocalManualEnabled, setIsLocalManualEnabled] = useState(() => getUseLocalManual())
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false)
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false)
+  const [isTodoModalOpen, setIsTodoModalOpen] = useState(false)
   const [transitionStage, setTransitionStage] = useState<TransitionStage>('entering')
   const closeTimerRef = useRef<number | null>(null)
   const enterTimerRef = useRef<number | null>(null)
@@ -289,6 +291,16 @@ function MineDetailPage({ title }: MineDetailPageProps) {
               </div>
             </div>
 
+            <div className='mine-button-group'>
+              <button
+                type='button'
+                className='mine-group-button schedule-settings-action'
+                onClick={() => setIsTodoModalOpen(true)}
+              >
+                查看TODO，参加贡献！
+              </button>
+            </div>
+
             {detailItems.map((item) => (
               <div className='mine-button-group' key={item.title}>
                 <div className='mine-group-button mine-detail-card-item'>
@@ -335,6 +347,53 @@ function MineDetailPage({ title }: MineDetailPageProps) {
                   ))}
                 </ul>
               </div>
+            </Modal>
+
+            <Modal
+              title='查看TODO，参加贡献！'
+              open={isTodoModalOpen}
+              onCancel={() => setIsTodoModalOpen(false)}
+              footer={null}
+            >
+              <div className='mine-legal-content'>
+                <p>快照时间：{TODO_SNAPSHOT_GENERATED_AT}</p>
+              </div>
+
+              <section className='mine-todo-section'>
+                <p className='mine-todo-section-title'>APP</p>
+                {APP_TODO_ITEMS.length > 0 ? (
+                  <ul className='mine-todo-list'>
+                    {APP_TODO_ITEMS.map((todo, index) => (
+                      <li key={`app-${index}`}>
+                        <label>
+                          <Checkbox checked={false} disabled />
+                          <span>{todo}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className='mine-detail-card-description'>暂无 TODO</p>
+                )}
+              </section>
+
+              <section className='mine-todo-section'>
+                <p className='mine-todo-section-title'>手册</p>
+                {MANUAL_TODO_ITEMS.length > 0 ? (
+                  <ul className='mine-todo-list'>
+                    {MANUAL_TODO_ITEMS.map((todo, index) => (
+                      <li key={`manual-${index}`}>
+                        <label>
+                          <Checkbox checked={false} disabled />
+                          <span>{todo}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className='mine-detail-card-description'>暂无 TODO</p>
+                )}
+              </section>
             </Modal>
           </>
         ) : (
