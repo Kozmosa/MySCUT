@@ -487,12 +487,13 @@ function ScheduleSettingsPage() {
           >
             导入课表
           </button>
-        </div>
-        <p className='schedule-settings-current-date'>
-          当前课表：{scheduleName || '未导入'}
-        </p>
-
-        <div className='mine-button-group'>
+          <button
+            type='button'
+            className='mine-group-button schedule-settings-action'
+            onClick={handleOpenScheduleExport}
+          >
+            导出课表
+          </button>
           <button
             type='button'
             className='mine-group-button schedule-settings-action'
@@ -501,16 +502,9 @@ function ScheduleSettingsPage() {
             切换课表
           </button>
         </div>
-
-        <div className='mine-button-group'>
-          <button
-            type='button'
-            className='mine-group-button schedule-settings-action'
-            onClick={handleOpenScheduleExport}
-          >
-            导出课表
-          </button>
-        </div>
+        <p className='schedule-settings-current-date'>
+          当前课表：{scheduleName || '未导入'}
+        </p>
 
         <div className='mine-button-group'>
           <button
