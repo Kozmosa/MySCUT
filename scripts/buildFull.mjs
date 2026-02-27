@@ -1,21 +1,18 @@
-import { execSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
+import {
+  docsProjectDir,
+  ensureManualSubmodule,
+  getPinnedManualCommit,
+  pullLatestManual,
+  restoreManualCommit,
+  rootDir,
+  run,
+} from './manualSubmoduleUtils.mjs'
 
-const currentDir = dirname(fileURLToPath(import.meta.url))
-const rootDir = resolve(currentDir, '..')
-const docsProjectDir = resolve(rootDir, 'external/survive-in-scut')
 const docsPlatformDistDir = resolve(docsProjectDir, 'vue-platform-dist')
 const appDocsDistDir = resolve(rootDir, 'dist/docs')
 const docsNodeModulesDir = resolve(docsProjectDir, 'node_modules')
-
-function run(command, cwd) {
-  execSync(command, {
-    cwd,
-    stdio: 'inherit',
-  })
-}
 
 function copyDocsDist() {
   if (!existsSync(docsPlatformDistDir)) {
@@ -43,8 +40,19 @@ function cleanupDocsArtifacts() {
   rmSync(docsPlatformDistDir, { recursive: true, force: true })
 }
 
-run('npm run build', rootDir)
-ensureDocsDependencies()
-run('npm run docs:build:platform', docsProjectDir)
-copyDocsDist()
-cleanupDocsArtifacts()
+const pinnedManualCommit = getPinnedManualCommit()
+
+ensureManualSubmodule()
+pullLatestManual()
+
+try {
+  run('npm run build:todo-snapshot', rootDir)
+  run('tsc -b && vite build', rootDir)
+  ensureDocsDependencies()
+  run('npm run docs:build:platform', docsProjectDir)
+  copyDocsDist()
+  cleanupDocsArtifacts()
+  run('npx cap sync android', rootDir)
+} finally {
+  restoreManualCommit(pinnedManualCommit)
+}

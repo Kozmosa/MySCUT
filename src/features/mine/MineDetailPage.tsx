@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { getUseLocalManual, setUseLocalManual } from '../../core/manual/manualSourceStorage'
 import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../core/navigation/animatedBack'
 import { GLOBAL_THEME_FAMILY_OPTIONS } from '../../core/theme/globalThemePresets'
-import { APP_TODO_ITEMS, MANUAL_TODO_ITEMS, TODO_SNAPSHOT_GENERATED_AT } from '../../generated/todoSnapshot'
+import { APP_TODO_ITEMS, MANUAL_TODO_ITEMS } from '../../generated/todoSnapshot'
 import { useGlobalTheme } from '../../platform/web/theme/GlobalThemeProvider'
 
 type MineDetailPageProps = {
@@ -355,10 +355,6 @@ function MineDetailPage({ title }: MineDetailPageProps) {
               onCancel={() => setIsTodoModalOpen(false)}
               footer={null}
             >
-              <div className='mine-legal-content'>
-                <p>快照时间：{TODO_SNAPSHOT_GENERATED_AT}</p>
-              </div>
-
               <section className='mine-todo-section'>
                 <p className='mine-todo-section-title'>APP</p>
                 {APP_TODO_ITEMS.length > 0 ? (

@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build:todo-snapshot": "node scripts/generateTodoSnapshot.mjs",
-    "build": "npm run build:todo-snapshot && tsc -b && vite build",
+    "release:prepare-manual": "node scripts/prepareReleaseManualSubmodule.mjs",
+    "build": "node scripts/buildApp.mjs",
     "build:full": "node scripts/buildFull.mjs",
-    "build:android": "npm run build:full && npx cap sync android",
+    "build:android": "npm run build:full",
     "preview": "vite preview"
   },
   "dependencies": {
