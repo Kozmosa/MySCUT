@@ -537,6 +537,12 @@ body {
   padding: 14px 16px;
 }
 
+.mine-theme-family-panel {
+  min-height: auto;
+  display: block;
+  padding: 14px 16px;
+}
+
 .mine-theme-mode-header,
 .mine-theme-mode-footer {
   display: flex;
@@ -599,6 +605,35 @@ body {
   margin-top: 12px;
 }
 
+.mine-theme-family-list {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mine-theme-family-item {
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.mine-theme-family-item.is-active {
+  border-color: var(--switch-active-border);
+  color: var(--accent-primary);
+  background: var(--bg-surface-muted);
+  font-weight: 600;
+}
+
+.mine-theme-family-item:active {
+  background: var(--bg-soft);
+}
+
 .theme-transitioning body,
 .theme-transitioning .courses-header,
 .theme-transitioning .schedule-scroll-area,
@@ -612,6 +647,7 @@ body {
 .theme-transitioning .mine-theme-segment,
 .theme-transitioning .mine-theme-segment-indicator,
 .theme-transitioning .mine-theme-segment-button,
+.theme-transitioning .mine-theme-family-item,
 .theme-transitioning .mine-theme-mode-header,
 .theme-transitioning .mine-theme-mode-footer,
 .theme-transitioning .mine-theme-toggle-meta,

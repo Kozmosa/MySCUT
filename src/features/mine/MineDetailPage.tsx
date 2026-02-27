@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { Switch } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { getUseLocalManual, setUseLocalManual } from '../../core/manual/manualSourceStorage'
 import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../core/navigation/animatedBack'
+import { GLOBAL_THEME_FAMILY_OPTIONS } from '../../core/theme/globalThemePresets'
+import { useGlobalTheme } from '../../platform/web/theme/GlobalThemeProvider'
 
 type MineDetailPageProps = {
   title: string
@@ -12,6 +14,23 @@ type TransitionStage = 'entering' | 'entered' | 'closing'
 
 const ENTER_ANIMATION_FRAME_MS = 16
 const CLOSE_TRANSITION_MS = 220
+
+const GLOBAL_THEME_MODE_LABELS = {
+  light: '亮色',
+  dark: '暗色',
+  system: '跟随系统',
+} as const
+
+const RESOLVED_THEME_MODE_LABELS = {
+  light: '亮色',
+  dark: '暗色',
+} as const
+
+const THEME_MODE_INDEX: Record<keyof typeof GLOBAL_THEME_MODE_LABELS, number> = {
+  light: 0,
+  dark: 1,
+  system: 2,
+}
 
 const DETAIL_SUBTITLE_MAP: Record<string, string> = {
   '全局设置': 'Global Settings',
@@ -42,6 +61,7 @@ const DETAIL_ITEMS_MAP: Record<string, Array<{ title: string; description: strin
 
 function MineDetailPage({ title }: MineDetailPageProps) {
   const navigate = useNavigate()
+  const { themeFamily, mode, resolvedMode, setThemeFamily, setMode } = useGlobalTheme()
   const subtitle = DETAIL_SUBTITLE_MAP[title] ?? 'Details'
   const detailItems = DETAIL_ITEMS_MAP[title] ?? DETAIL_ITEMS_MAP['更多']
   const [isLocalManualEnabled, setIsLocalManualEnabled] = useState(() => getUseLocalManual())
@@ -114,6 +134,10 @@ function MineDetailPage({ title }: MineDetailPageProps) {
     setUseLocalManual(checked)
   }
 
+  const segmentStyle = {
+    '--segment-index': THEME_MODE_INDEX[mode],
+  } as CSSProperties
+
   return (
     <section
       className={`schedule-settings-page mine-detail-page settings-view-transition settings-view-transition--${transitionStage}`}
@@ -137,15 +161,83 @@ function MineDetailPage({ title }: MineDetailPageProps) {
 
       <div className='schedule-settings-content mine-detail-content'>
         {title === '全局设置' ? (
-          <div className='mine-button-group'>
-            <div className='mine-group-button mine-setting-row'>
-              <div className='mine-setting-copy'>
-                <p className='mine-detail-card-title'>启用本地手册</p>
-                <p className='mine-detail-card-description'>开启后优先加载应用内置手册资源</p>
+          <>
+            <div className='mine-button-group'>
+              <div className='mine-group-button mine-theme-family-panel'>
+                <div className='mine-theme-mode-header'>
+                  <span>全局主题套装</span>
+                  <span className='mine-theme-toggle-meta'>
+                    {GLOBAL_THEME_FAMILY_OPTIONS.find((item) => item.id === themeFamily)?.name ?? '默认'}
+                  </span>
+                </div>
+
+                <div className='mine-theme-family-list'>
+                  {GLOBAL_THEME_FAMILY_OPTIONS.map((item) => (
+                    <button
+                      key={item.id}
+                      type='button'
+                      className={`mine-theme-family-item ${themeFamily === item.id ? 'is-active' : ''}`}
+                      onClick={() => setThemeFamily(item.id)}
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <Switch checked={isLocalManualEnabled} onChange={handleLocalManualSwitchChange} />
             </div>
-          </div>
+
+            <div className='mine-button-group'>
+              <div className='mine-group-button mine-theme-mode-panel'>
+                <div className='mine-theme-mode-header'>
+                  <span>全局主题模式</span>
+                  <span className='mine-theme-toggle-meta'>{GLOBAL_THEME_MODE_LABELS[mode]}</span>
+                </div>
+
+                <div className='mine-theme-segment' role='group' aria-label='全局主题切换' style={segmentStyle}>
+                  <span className='mine-theme-segment-indicator' aria-hidden='true' />
+                  <button
+                    type='button'
+                    className={`mine-theme-segment-button ${mode === 'light' ? 'is-active' : ''}`}
+                    aria-pressed={mode === 'light'}
+                    onClick={() => setMode('light')}
+                  >
+                    亮色
+                  </button>
+                  <button
+                    type='button'
+                    className={`mine-theme-segment-button ${mode === 'dark' ? 'is-active' : ''}`}
+                    aria-pressed={mode === 'dark'}
+                    onClick={() => setMode('dark')}
+                  >
+                    暗色
+                  </button>
+                  <button
+                    type='button'
+                    className={`mine-theme-segment-button ${mode === 'system' ? 'is-active' : ''}`}
+                    aria-pressed={mode === 'system'}
+                    onClick={() => setMode('system')}
+                  >
+                    跟随系统
+                  </button>
+                </div>
+
+                <div className='mine-theme-mode-footer'>
+                  <span>当前生效主题</span>
+                  <span className='mine-theme-toggle-meta'>{RESOLVED_THEME_MODE_LABELS[resolvedMode]}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className='mine-button-group'>
+              <div className='mine-group-button mine-setting-row'>
+                <div className='mine-setting-copy'>
+                  <p className='mine-detail-card-title'>启用本地手册</p>
+                  <p className='mine-detail-card-description'>开启后优先加载应用内置手册资源</p>
+                </div>
+                <Switch checked={isLocalManualEnabled} onChange={handleLocalManualSwitchChange} />
+              </div>
+            </div>
+          </>
         ) : (
           detailItems.map((item) => (
             <div className='mine-button-group' key={item.title}>
