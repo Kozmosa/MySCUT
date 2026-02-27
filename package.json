@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build:todo-snapshot": "node scripts/generateTodoSnapshot.mjs",
+    "build": "npm run build:todo-snapshot && tsc -b && vite build",
     "build:full": "node scripts/buildFull.mjs",
     "build:android": "npm run build:full && npx cap sync android",
     "preview": "vite preview"
