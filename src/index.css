@@ -8,6 +8,7 @@ body,
 }
 
 :root {
+  --bottom-nav-height: calc(64px + env(safe-area-inset-bottom));
   --bg-page: #f5f6fa;
   --bg-surface: #ffffff;
   --bg-surface-alt: #f8faff;
@@ -417,7 +418,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  height: calc(64px + env(safe-area-inset-bottom));
+  height: var(--bottom-nav-height);
   padding-bottom: env(safe-area-inset-bottom);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -443,7 +444,7 @@ body {
 }
 
 .manual-page {
-  height: 100%;
+  height: calc(100% - var(--bottom-nav-height));
   min-height: 0;
 }
 
