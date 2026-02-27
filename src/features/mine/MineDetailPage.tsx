@@ -1,5 +1,5 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
-import { Switch } from 'antd'
+import { Modal, Switch } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { getUseLocalManual, setUseLocalManual } from '../../core/manual/manualSourceStorage'
 import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../core/navigation/animatedBack'
@@ -59,12 +59,31 @@ const DETAIL_ITEMS_MAP: Record<string, Array<{ title: string; description: strin
   ],
 }
 
+const LICENSE_ITEMS = [
+  { name: 'my-scut-frontend', license: '未单独声明（private）' },
+  { name: '@capacitor/android', license: 'MIT' },
+  { name: '@capacitor/app', license: 'MIT' },
+  { name: '@capacitor/cli', license: 'MIT' },
+  { name: '@capacitor/core', license: 'MIT' },
+  { name: '@capacitor/status-bar', license: 'MIT' },
+  { name: '@capacitor/assets', license: 'MIT' },
+  { name: 'antd', license: 'MIT' },
+  { name: 'react', license: 'MIT' },
+  { name: 'react-dom', license: 'MIT' },
+  { name: 'react-router-dom', license: 'MIT' },
+  { name: '@vitejs/plugin-react', license: 'MIT' },
+  { name: 'vite', license: 'MIT' },
+  { name: 'typescript', license: 'Apache-2.0' },
+]
+
 function MineDetailPage({ title }: MineDetailPageProps) {
   const navigate = useNavigate()
   const { themeFamily, mode, resolvedMode, setThemeFamily, setMode } = useGlobalTheme()
   const subtitle = DETAIL_SUBTITLE_MAP[title] ?? 'Details'
   const detailItems = DETAIL_ITEMS_MAP[title] ?? DETAIL_ITEMS_MAP['更多']
   const [isLocalManualEnabled, setIsLocalManualEnabled] = useState(() => getUseLocalManual())
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false)
+  const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false)
   const [transitionStage, setTransitionStage] = useState<TransitionStage>('entering')
   const closeTimerRef = useRef<number | null>(null)
   const enterTimerRef = useRef<number | null>(null)
@@ -237,6 +256,86 @@ function MineDetailPage({ title }: MineDetailPageProps) {
                 <Switch checked={isLocalManualEnabled} onChange={handleLocalManualSwitchChange} />
               </div>
             </div>
+          </>
+        ) : title === '更多' ? (
+          <>
+            <div className='mine-button-group'>
+              <div className='mine-group-button mine-detail-card-item'>
+                <p className='mine-detail-card-title'>关于</p>
+                <p className='mine-detail-card-description'>应用作者：@Kozumi</p>
+                <p className='mine-detail-card-description'>
+                  内容创作：启梦华工编辑部（成员：@Kozumi / @Rotioki）
+                </p>
+                <p className='mine-detail-card-description'>
+                  免责声明：一切信息仅供参考，不对信息来源与权威性负责，请结合官方渠道审慎甄别。
+                </p>
+                <div className='mine-detail-link-row'>
+                  <button
+                    type='button'
+                    className='mine-detail-link-button'
+                    onClick={() => setIsTermsModalOpen(true)}
+                  >
+                    用户协议与隐私声明
+                  </button>
+                  <button
+                    type='button'
+                    className='mine-detail-link-button'
+                    onClick={() => setIsLicenseModalOpen(true)}
+                  >
+                    开源许可证
+                  </button>
+                </div>
+                <p className='mine-detail-card-description'>鸣谢支持：我不是卷神、华工转专业交流群</p>
+              </div>
+            </div>
+
+            {detailItems.map((item) => (
+              <div className='mine-button-group' key={item.title}>
+                <div className='mine-group-button mine-detail-card-item'>
+                  <p className='mine-detail-card-title'>{item.title}</p>
+                  <p className='mine-detail-card-description'>{item.description}</p>
+                </div>
+              </div>
+            ))}
+
+            <Modal
+              title='用户协议与隐私声明'
+              open={isTermsModalOpen}
+              onCancel={() => setIsTermsModalOpen(false)}
+              footer={null}
+            >
+              <div className='mine-legal-content'>
+                <p>本应用为信息聚合与工具辅助产品，供校内学习与生活参考使用。</p>
+                <p>
+                  你在使用过程中应遵守法律法规与平台规则，不得将本应用用于违法违规、侵权或破坏性用途。
+                </p>
+                <p>
+                  隐私方面，应用仅在本地存储必要配置（如头像、主题与课表导入结果），不主动上传个人数据。
+                </p>
+                <p>
+                  本应用所载信息不构成官方承诺或权威结论，请以学校与相关机构发布的正式信息为准，并自行判断。
+                </p>
+              </div>
+            </Modal>
+
+            <Modal
+              title='开源许可证'
+              open={isLicenseModalOpen}
+              onCancel={() => setIsLicenseModalOpen(false)}
+              footer={null}
+            >
+              <div className='mine-legal-content'>
+                <p>本项目及所引用开源项目许可证如下（以官方仓库声明为准）：</p>
+                <ul className='mine-license-list'>
+                  {LICENSE_ITEMS.map((item) => (
+                    <li key={item.name}>
+                      <span>{item.name}</span>
+                      <span>{item.license}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Modal>
           </>
         ) : (
           detailItems.map((item) => (

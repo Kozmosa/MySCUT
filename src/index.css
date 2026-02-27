@@ -729,6 +729,52 @@ body {
   color: var(--text-secondary);
 }
 
+.mine-detail-link-row {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mine-detail-link-button {
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: var(--accent-primary);
+  font-size: 13px;
+  line-height: 1.4;
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.mine-legal-content p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+.mine-legal-content p + p {
+  margin-top: 10px;
+}
+
+.mine-license-list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.mine-license-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .mine-setting-row {
   min-height: 86px;
   padding: 14px 16px;
