@@ -247,6 +247,15 @@ export function listSavedSchedules() {
   }))
 }
 
+export function loadSavedScheduleById(scheduleId: string) {
+  const library = ensureScheduleLibrary()
+  if (!library) {
+    return null
+  }
+
+  return library.schedules.find((schedule) => schedule.id === scheduleId) ?? null
+}
+
 export function switchActiveSchedule(scheduleId: string) {
   const library = ensureScheduleLibrary()
   if (!library) {
