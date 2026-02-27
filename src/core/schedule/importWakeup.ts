@@ -37,6 +37,27 @@ function assertValidWakeupShape(
   }
 }
 
+function resolveWakeupLessonEndNode(lesson: WakeupLesson, timeSlots: WakeupTimeSlot[]) {
+  const candidates = [...timeSlots].sort((a, b) => a.node - b.node)
+
+  const startNode = lesson.startNode
+  const matchedByEndTime = candidates.find((slot) => slot.endTime === lesson.endTime && slot.node >= startNode)
+  if (matchedByEndTime) {
+    return matchedByEndTime.node
+  }
+
+  const startSlotIndex = candidates.findIndex((slot) => slot.node === startNode)
+  if (startSlotIndex >= 0) {
+    for (let index = startSlotIndex; index < candidates.length; index += 1) {
+      if (candidates[index].endTime === lesson.endTime) {
+        return candidates[index].node
+      }
+    }
+  }
+
+  return startNode
+}
+
 export function normalizeWakeupStartDate(startDate: string) {
   const match = startDate.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
   if (!match) {
@@ -83,6 +104,7 @@ export function parseWakeupScheduleText(text: string): ScheduleData {
     tableId: lesson.tableId,
     day: lesson.day,
     startNode: lesson.startNode,
+    endNode: resolveWakeupLessonEndNode(lesson, timeSlots),
     startWeek: lesson.startWeek,
     endWeek: lesson.endWeek,
     weekStep: lesson.step,

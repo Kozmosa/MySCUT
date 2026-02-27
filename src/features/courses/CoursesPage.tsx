@@ -10,7 +10,16 @@ import {
 } from 'react'
 import { Modal } from 'antd'
 import { useNavigate } from 'react-router-dom'
-import { buildWeekCellCourseMap, getCellCourses } from '../../core/schedule/selectors'
+import {
+  buildWeekScheduleRenderData,
+  createEmptyWeekScheduleRenderData,
+  getCellCourses,
+  getCellRowSpan,
+  isCellCovered,
+  type WeekScheduleRenderData,
+} from '../../core/schedule/selectors'
+import { getAutoSimplifyScheduleHintEnabled } from '../../core/schedule/displaySettings'
+import { simplifyCourseName, simplifyRoomText, simplifyTeacherText } from '../../core/schedule/displayTextSimplifier'
 import { loadScheduleData } from '../../core/schedule/storage'
 import { getScheduleThemePreset } from '../../core/schedule/themeStorage'
 import type { ScheduleThemePreset } from '../../core/schedule/themePresets'
@@ -20,6 +29,8 @@ import { getSemesterStartDate } from '../../core/scheduleSettings'
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
 const LESSON_INDEXES = Array.from({ length: 11 }, (_, index) => index + 1)
 const SCROLL_HINT_THRESHOLD = 2
+const PRELOAD_WEEK_RADIUS = 3
+const EMPTY_WEEK_RENDER_DATA = createEmptyWeekScheduleRenderData()
 
 type ScheduleScrollPaneProps = {
   children: ReactNode
@@ -237,6 +248,7 @@ function getCourseCardColor(
 
 function renderCourseCell(
   themePreset: ScheduleThemePreset,
+  autoSimplifyHintEnabled: boolean,
   day: number,
   lessonNumber: number,
   cellCourses: WeekCellCourse[],
@@ -260,6 +272,9 @@ function renderCourseCell(
     '--course-text-secondary': themePreset.textColorSecondary,
     '--course-text-badge': themePreset.textColorBadge,
   } as CSSProperties
+  const displayCourseName = simplifyCourseName(firstCourse.name)
+  const displayRoom = autoSimplifyHintEnabled ? simplifyRoomText(firstCourse.room) : firstCourse.room
+  const displayTeacher = simplifyTeacherText(firstCourse.teacher)
 
   return (
     <button
@@ -268,8 +283,9 @@ function renderCourseCell(
       style={{ backgroundColor, ...cardTextStyle }}
       onClick={() => onOpenDetail(cellCourses, day, lessonNumber)}
     >
-      <p className='course-card-name'>{firstCourse.name}</p>
-      <p className='course-card-meta'>{firstCourse.room || firstCourse.teacher || '-'}</p>
+      <p className='course-card-name'>{displayCourseName}</p>
+      <p className='course-card-meta'>{displayRoom || '-'}</p>
+      <p className='course-card-meta'>{displayTeacher || '-'}</p>
       {extraCount > 0 && <span className='course-card-more'>+{extraCount}</span>}
     </button>
   )
@@ -288,14 +304,13 @@ function createSwipeState(currentWeek: number, direction: 'prev' | 'next' | null
 }
 
 function renderScheduleTable(
-  scheduleData: ReturnType<typeof loadScheduleData>,
   themePreset: ScheduleThemePreset,
-  weekNumber: number,
+  autoSimplifyHintEnabled: boolean,
+  weekRenderData: WeekScheduleRenderData,
   onOpenDetail: (courses: WeekCellCourse[], day: number, node: number) => void,
 ) {
   const today = new Date()
   const monthLabel = `${today.getMonth() + 1}月`
-  const weekCellMap = scheduleData ? buildWeekCellCourseMap(scheduleData, weekNumber) : new Map()
 
   return (
     <table className='schedule-table'>
@@ -321,11 +336,23 @@ function renderScheduleTable(
 
             {WEEKDAY_LABELS.map((weekday, dayIndex) => {
               const day = dayIndex + 1
-              const cellCourses = getCellCourses(weekCellMap, day, lessonNumber)
+              if (isCellCovered(weekRenderData, day, lessonNumber)) {
+                return null
+              }
+
+              const cellCourses = getCellCourses(weekRenderData, day, lessonNumber)
+              const rowSpan = getCellRowSpan(weekRenderData, day, lessonNumber)
 
               return (
-                <td key={`${lessonNumber}-${weekday}`} className='schedule-cell'>
-                  {renderCourseCell(themePreset, day, lessonNumber, cellCourses, onOpenDetail)}
+                <td key={`${lessonNumber}-${weekday}`} className='schedule-cell' rowSpan={rowSpan}>
+                  {renderCourseCell(
+                    themePreset,
+                    autoSimplifyHintEnabled,
+                    day,
+                    lessonNumber,
+                    cellCourses,
+                    onOpenDetail,
+                  )}
                 </td>
               )
             })}
@@ -353,6 +380,7 @@ function CoursesPage() {
   const [selectedNode, setSelectedNode] = useState(1)
   const scheduleData = useMemo(() => loadScheduleData(), [])
   const scheduleThemePreset = useMemo(() => getScheduleThemePreset(), [])
+  const autoSimplifyHintEnabled = useMemo(() => getAutoSimplifyScheduleHintEnabled(), [])
 
   const currentDate = new Date()
   const semesterStartDate = getSemesterStartDate()
@@ -362,6 +390,25 @@ function CoursesPage() {
   const minWeekOffset = 1 - baseWeek
 
   const swipeState = useMemo(() => createSwipeState(currentWeek, swipeDirection), [currentWeek, swipeDirection])
+
+  const weekRenderDataCache = useMemo(() => {
+    const cache = new Map<number, WeekScheduleRenderData>()
+
+    if (!scheduleData) {
+      return cache
+    }
+
+    const weekStart = Math.max(1, currentWeek - PRELOAD_WEEK_RADIUS)
+    const weekEnd = currentWeek + PRELOAD_WEEK_RADIUS
+
+    for (let week = weekStart; week <= weekEnd; week += 1) {
+      cache.set(week, buildWeekScheduleRenderData(scheduleData, week))
+    }
+
+    return cache
+  }, [currentWeek, scheduleData])
+
+  const getWeekRenderData = (weekNumber: number) => weekRenderDataCache.get(weekNumber) ?? EMPTY_WEEK_RENDER_DATA
 
   const handleTouchStart = (event: TouchEvent<HTMLElement>) => {
     if (isAnimating) {
@@ -604,9 +651,9 @@ function CoursesPage() {
           <div className='schedule-swipe-page'>
             <ScheduleScrollPane>
               {renderScheduleTable(
-                scheduleData,
                 scheduleThemePreset,
-                swipeState.prevWeek,
+                autoSimplifyHintEnabled,
+                getWeekRenderData(swipeState.prevWeek),
                 handleOpenCourseDetail,
               )}
             </ScheduleScrollPane>
@@ -614,9 +661,9 @@ function CoursesPage() {
           <div className='schedule-swipe-page'>
             <ScheduleScrollPane>
               {renderScheduleTable(
-                scheduleData,
                 scheduleThemePreset,
-                swipeState.currentWeek,
+                autoSimplifyHintEnabled,
+                getWeekRenderData(swipeState.currentWeek),
                 handleOpenCourseDetail,
               )}
             </ScheduleScrollPane>
@@ -624,9 +671,9 @@ function CoursesPage() {
           <div className='schedule-swipe-page'>
             <ScheduleScrollPane>
               {renderScheduleTable(
-                scheduleData,
                 scheduleThemePreset,
-                swipeState.nextWeek,
+                autoSimplifyHintEnabled,
+                getWeekRenderData(swipeState.nextWeek),
                 handleOpenCourseDetail,
               )}
             </ScheduleScrollPane>
@@ -647,7 +694,12 @@ function CoursesPage() {
               <p className='course-detail-line'>教室：{course.room || '-'}</p>
               <p className='course-detail-line'>教师：{course.teacher || '-'}</p>
               <p className='course-detail-line'>周次：第{course.lesson.startWeek}-{course.lesson.endWeek}周</p>
-              <p className='course-detail-line'>节次：第{course.lesson.startNode}节</p>
+              <p className='course-detail-line'>
+                节次：
+                {course.lesson.startNode === course.lesson.endNode
+                  ? `第${course.lesson.startNode}节`
+                  : `第${course.lesson.startNode}-${course.lesson.endNode}节`}
+              </p>
             </article>
           ))}
         </div>

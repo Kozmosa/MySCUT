@@ -134,6 +134,7 @@ export function parseScutScheduleHtml(html: string, options: ParseScutHtmlOption
         tableId: 1,
         day: Math.min(7, Math.max(1, day)) as 1 | 2 | 3 | 4 | 5 | 6 | 7,
         startNode: nodeInfo.startNode,
+        endNode: nodeInfo.endNode,
         startWeek: weekInfo.startWeek,
         endWeek: weekInfo.endWeek,
         weekStep: 1,

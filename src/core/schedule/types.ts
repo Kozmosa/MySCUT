@@ -86,6 +86,7 @@ export type ScheduleLesson = {
   tableId: number
   day: 1 | 2 | 3 | 4 | 5 | 6 | 7
   startNode: number
+  endNode: number
   startWeek: number
   endWeek: number
   weekStep: number
