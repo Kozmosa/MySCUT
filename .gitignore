@@ -27,3 +27,6 @@ pnpm-debug.log*
 
 # Android
 android/
+
+# Local secrets
+GITHUB_TOKEN.SEC
