@@ -1,10 +1,15 @@
 import { type ChangeEvent, useEffect, useRef, useState } from 'react'
-import { DatePicker, Input, Modal, Select, message } from 'antd'
+import { DatePicker, Input, Modal, Select, Switch, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import {
+  getAutoSimplifyScheduleHintEnabled,
+  setAutoSimplifyScheduleHintEnabled,
+} from '../../../core/schedule/displaySettings'
 import { parseQmsScheduleText } from '../../../core/schedule/importQms'
 import { parseScutScheduleHtml } from '../../../core/schedule/importScutHtml'
 import { parseWakeupScheduleText } from '../../../core/schedule/importWakeup'
 import {
+  deleteSavedSchedule,
   listSavedSchedules,
   loadActiveScheduleEntry,
   loadSavedScheduleById,
@@ -54,11 +59,16 @@ function ScheduleSettingsPage() {
   const [isHtmlInputModalOpen, setIsHtmlInputModalOpen] = useState(false)
   const [htmlInputText, setHtmlInputText] = useState('')
   const [isScheduleSwitchModalOpen, setIsScheduleSwitchModalOpen] = useState(false)
+  const [isScheduleDeleteModalOpen, setIsScheduleDeleteModalOpen] = useState(false)
+  const [deleteTargetScheduleId, setDeleteTargetScheduleId] = useState('')
+  const [deleteTargetScheduleName, setDeleteTargetScheduleName] = useState('')
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [isScheduleExportModalOpen, setIsScheduleExportModalOpen] = useState(false)
   const [isExportFormatModalOpen, setIsExportFormatModalOpen] = useState(false)
   const [exportTargetScheduleId, setExportTargetScheduleId] = useState('')
   const [exportFormat, setExportFormat] = useState<ScheduleExportFormat>('wakeup')
   const [savedSchedules, setSavedSchedules] = useState<SavedScheduleItem[]>(() => listSavedSchedules())
+  const [isAutoSimplifyHintEnabled, setIsAutoSimplifyHintEnabled] = useState(() => getAutoSimplifyScheduleHintEnabled())
   const [semesterStartDate, setSemesterStartDate] = useState(() => getSemesterStartDate())
   const [pendingDate, setPendingDate] = useState(semesterStartDate)
   const [scheduleName, setScheduleName] = useState(() => loadActiveScheduleEntry()?.name ?? '')
@@ -221,12 +231,30 @@ function ScheduleSettingsPage() {
     setIsThemeModalOpen(true)
   }
 
+  const handleOpenDeleteSchedule = (scheduleId: string, scheduleTitle: string) => {
+    setDeleteTargetScheduleId(scheduleId)
+    setDeleteTargetScheduleName(scheduleTitle)
+    setDeleteConfirmText('')
+    setIsScheduleDeleteModalOpen(true)
+  }
+
   const handleOpenScheduleExport = () => {
     const schedules = listSavedSchedules()
     setSavedSchedules(schedules)
     setExportTargetScheduleId('')
     setExportFormat('wakeup')
     setIsScheduleExportModalOpen(true)
+  }
+
+  const handleAutoSimplifyHintSwitchChange = (checked: boolean) => {
+    const saved = setAutoSimplifyScheduleHintEnabled(checked)
+    if (!saved) {
+      messageApi.error('设置保存失败，请稍后重试')
+      return
+    }
+
+    setIsAutoSimplifyHintEnabled(checked)
+    messageApi.success('提示信息精简设置已更新')
   }
 
   const handleCloseThemeModal = () => {
@@ -403,6 +431,51 @@ function ScheduleSettingsPage() {
     messageApi.success('课表切换成功')
   }
 
+  const handleConfirmDeleteSchedule = () => {
+    const expectedName = deleteTargetScheduleName.trim()
+    const inputName = deleteConfirmText.trim()
+
+    if (!deleteTargetScheduleId) {
+      messageApi.error('未选择待删除课表，请重新操作')
+      return
+    }
+
+    if (!inputName) {
+      messageApi.error('请输入课表名称以确认删除')
+      return
+    }
+
+    if (inputName !== expectedName) {
+      messageApi.error('输入的课表名称与目标不一致')
+      return
+    }
+
+    const result = deleteSavedSchedule(deleteTargetScheduleId)
+    if (!result.ok) {
+      messageApi.error('删除课表失败，请稍后重试')
+      return
+    }
+
+    const nextActiveSchedule = result.nextActiveSchedule
+    if (nextActiveSchedule) {
+      setScheduleThemeId(nextActiveSchedule.themeId as ScheduleThemeId)
+      const switchedTheme = getScheduleThemePresetById(nextActiveSchedule.themeId)
+      setThemeName(switchedTheme.name)
+
+      if (nextActiveSchedule.semesterStartDate) {
+        saveSemesterStartDate(nextActiveSchedule.semesterStartDate)
+        setSemesterStartDate(nextActiveSchedule.semesterStartDate)
+      }
+    }
+
+    refreshScheduleState()
+    setDeleteTargetScheduleId('')
+    setDeleteTargetScheduleName('')
+    setDeleteConfirmText('')
+    setIsScheduleDeleteModalOpen(false)
+    messageApi.success('课表已删除')
+  }
+
   const handleConfirmExportScheduleTarget = () => {
     if (!exportTargetScheduleId) {
       messageApi.error('请先选择需要导出的课表')
@@ -516,6 +589,18 @@ function ScheduleSettingsPage() {
           </button>
         </div>
         <p className='schedule-settings-current-date'>当前配色：{themeName}</p>
+
+        <div className='mine-button-group'>
+          <div className='mine-group-button mine-setting-row'>
+            <div className='mine-setting-copy'>
+              <p className='mine-detail-card-title'>自动精简提示信息</p>
+              <p className='mine-detail-card-description'>
+                开启后会自动精简单元格提示文本（如去除校区前缀）
+              </p>
+            </div>
+            <Switch checked={isAutoSimplifyHintEnabled} onChange={handleAutoSimplifyHintSwitchChange} />
+          </div>
+        </div>
       </div>
 
       <input
@@ -662,20 +747,47 @@ function ScheduleSettingsPage() {
             <p className='schedule-switch-empty'>暂无已保存课表</p>
           ) : (
             savedSchedules.map((schedule) => (
-              <button
-                key={schedule.id}
-                type='button'
-                className={`schedule-switch-item ${schedule.isActive ? 'is-active' : ''}`}
-                onClick={() => handleSwitchSchedule(schedule.id)}
-              >
-                <span>{schedule.name}</span>
-                <span className='schedule-switch-meta'>
-                  来源：{schedule.source === 'wakeup' ? 'WakeUp' : '华工教务HTML'}
-                </span>
-              </button>
+              <div key={schedule.id} className='schedule-switch-row'>
+                <button
+                  type='button'
+                  className={`schedule-switch-item ${schedule.isActive ? 'is-active' : ''}`}
+                  onClick={() => handleSwitchSchedule(schedule.id)}
+                >
+                  <span>{schedule.name}</span>
+                  <span className='schedule-switch-meta'>
+                    来源：{schedule.source === 'wakeup' ? 'WakeUp' : '华工教务HTML'}
+                  </span>
+                </button>
+                <button
+                  type='button'
+                  className='schedule-switch-delete'
+                  aria-label={`删除课表 ${schedule.name}`}
+                  onClick={() => handleOpenDeleteSchedule(schedule.id, schedule.name)}
+                >
+                  ×
+                </button>
+              </div>
             ))
           )}
         </div>
+      </Modal>
+
+      <Modal
+        title='删除课表确认'
+        open={isScheduleDeleteModalOpen}
+        onOk={handleConfirmDeleteSchedule}
+        onCancel={() => setIsScheduleDeleteModalOpen(false)}
+        okText='确认删除'
+        cancelText='取消'
+      >
+        <p className='schedule-switch-empty'>
+          该操作无法撤销。请输入课表名称 <strong>{deleteTargetScheduleName || '-'}</strong> 以确认删除。
+        </p>
+        <Input
+          value={deleteConfirmText}
+          placeholder='输入课表名称进行确认'
+          onChange={(event) => setDeleteConfirmText(event.target.value)}
+        />
       </Modal>
 
       <Modal

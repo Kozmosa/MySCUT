@@ -941,6 +941,12 @@ body {
   gap: 10px;
 }
 
+.schedule-switch-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
 .schedule-switch-item {
   width: 100%;
   border: 1px solid var(--border-soft);
@@ -956,6 +962,11 @@ body {
   cursor: pointer;
 }
 
+.schedule-switch-row .schedule-switch-item {
+  width: auto;
+  flex: 1;
+}
+
 .schedule-switch-item.is-active {
   border-color: var(--switch-active-border);
   background: var(--bg-surface-muted);
@@ -964,6 +975,22 @@ body {
 .schedule-switch-meta {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.schedule-switch-delete {
+  width: 40px;
+  min-width: 40px;
+  border: none;
+  border-radius: 10px;
+  background: var(--button-soft-bg);
+  color: var(--button-soft-text);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.schedule-switch-delete:active {
+  background: var(--button-soft-bg-active);
 }
 
 .schedule-switch-empty {

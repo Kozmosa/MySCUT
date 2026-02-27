@@ -280,6 +280,52 @@ export function switchActiveSchedule(scheduleId: string) {
   return target
 }
 
+export function deleteSavedSchedule(scheduleId: string) {
+  const library = ensureScheduleLibrary()
+  if (!library) {
+    return {
+      ok: false,
+      nextActiveSchedule: null,
+    }
+  }
+
+  const targetExists = library.schedules.some((schedule) => schedule.id === scheduleId)
+  if (!targetExists) {
+    return {
+      ok: false,
+      nextActiveSchedule: findActiveSchedule(library),
+    }
+  }
+
+  const nextSchedules = library.schedules.filter((schedule) => schedule.id !== scheduleId)
+
+  const nextActiveScheduleId =
+    nextSchedules.length === 0
+      ? ''
+      : library.activeScheduleId === scheduleId || !nextSchedules.some((item) => item.id === library.activeScheduleId)
+        ? nextSchedules[0].id
+        : library.activeScheduleId
+
+  const nextLibrary: ScheduleLibrary = {
+    ...library,
+    activeScheduleId: nextActiveScheduleId,
+    schedules: nextSchedules,
+  }
+
+  const saved = writeScheduleLibrary(nextLibrary)
+  if (!saved) {
+    return {
+      ok: false,
+      nextActiveSchedule: findActiveSchedule(library),
+    }
+  }
+
+  return {
+    ok: true,
+    nextActiveSchedule: findActiveSchedule(nextLibrary),
+  }
+}
+
 export function clearScheduleData() {
   try {
     localStorage.removeItem(SCHEDULE_STORAGE_KEY)
