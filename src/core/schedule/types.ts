@@ -147,7 +147,10 @@ export type SavedSchedule = {
   name: string
   source: ScheduleData['source']
   themeId: string
+  timeSlotPresetId: TimeSlotPresetId
   semesterStartDate: string
   createdAt: number
   scheduleData: ScheduleData
 }
+
+export type TimeSlotPresetId = 'builtIn' | 'universityTown' | 'wushan' | 'international'

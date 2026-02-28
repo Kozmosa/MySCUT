@@ -1,4 +1,4 @@
-import type { SavedSchedule, ScheduleData } from './types'
+import type { SavedSchedule, ScheduleData, TimeSlotPresetId } from './types'
 
 const SCHEDULE_STORAGE_KEY = 'scheduleData'
 const SCHEDULE_LIBRARY_STORAGE_KEY = 'scheduleLibrary'
@@ -12,8 +12,17 @@ type ScheduleLibrary = {
 type SaveScheduleOptions = {
   themeId: string
   semesterStartDate: string
+  timeSlotPresetId?: TimeSlotPresetId
   preferredName?: string
   setActive?: boolean
+}
+
+function normalizeTimeSlotPresetId(value: unknown): TimeSlotPresetId {
+  if (value === 'universityTown' || value === 'wushan' || value === 'international' || value === 'builtIn') {
+    return value
+  }
+
+  return 'builtIn'
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -50,6 +59,16 @@ function isSavedSchedule(value: unknown): value is SavedSchedule {
   }
 
   if (typeof value.themeId !== 'string' || typeof value.semesterStartDate !== 'string') {
+    return false
+  }
+
+  if (
+    typeof value.timeSlotPresetId !== 'undefined' &&
+    value.timeSlotPresetId !== 'builtIn' &&
+    value.timeSlotPresetId !== 'universityTown' &&
+    value.timeSlotPresetId !== 'wushan' &&
+    value.timeSlotPresetId !== 'international'
+  ) {
     return false
   }
 
@@ -102,7 +121,13 @@ function readScheduleLibrary() {
       return null
     }
 
-    return parsed
+    return {
+      ...parsed,
+      schedules: parsed.schedules.map((schedule) => ({
+        ...schedule,
+        timeSlotPresetId: normalizeTimeSlotPresetId(schedule.timeSlotPresetId),
+      })),
+    }
   } catch {
     return null
   }
@@ -123,6 +148,7 @@ function buildSavedSchedule(scheduleData: ScheduleData, options: SaveScheduleOpt
     name: options.preferredName || scheduleData.table.name || '未命名课表',
     source: scheduleData.source,
     themeId: options.themeId,
+    timeSlotPresetId: options.timeSlotPresetId ?? 'builtIn',
     semesterStartDate: options.semesterStartDate,
     createdAt: Date.now(),
     scheduleData,
@@ -145,6 +171,7 @@ function ensureScheduleLibrary() {
     name: legacyScheduleData.table.name || '历史课表',
     source: legacyScheduleData.source,
     themeId: localStorage.getItem('scheduleThemeId') || 'skyBlue',
+    timeSlotPresetId: 'builtIn',
     semesterStartDate: localStorage.getItem('semesterStartDate') || '2026-02-23',
     createdAt: legacyScheduleData.importedAt || Date.now(),
     scheduleData: legacyScheduleData,
@@ -176,9 +203,35 @@ export function saveScheduleData(scheduleData: ScheduleData) {
   return saveScheduleDataWithOptions(scheduleData, {
     themeId: fallbackThemeId,
     semesterStartDate: fallbackSemesterStartDate,
+    timeSlotPresetId: 'builtIn',
     preferredName: scheduleData.table.name,
     setActive: true,
   })
+}
+
+export function setActiveScheduleTimeSlotPreset(timeSlotPresetId: TimeSlotPresetId) {
+  const library = ensureScheduleLibrary()
+  if (!library) {
+    return false
+  }
+
+  const nextSchedules = library.schedules.map((schedule) => {
+    if (schedule.id !== library.activeScheduleId) {
+      return schedule
+    }
+
+    return {
+      ...schedule,
+      timeSlotPresetId,
+    }
+  })
+
+  const nextLibrary: ScheduleLibrary = {
+    ...library,
+    schedules: nextSchedules,
+  }
+
+  return writeScheduleLibrary(nextLibrary)
 }
 
 export function saveScheduleDataWithOptions(scheduleData: ScheduleData, options: SaveScheduleOptions) {
