@@ -8,7 +8,15 @@ function isGlobalThemeMode(value: unknown): value is GlobalThemeMode {
 }
 
 function isGlobalThemeFamily(value: unknown): value is GlobalThemeFamily {
-  return value === 'default' || value === 'palacePlum'
+  return (
+    value === 'default' ||
+    value === 'bambooGrove' ||
+    value === 'palacePlum' ||
+    value === 'mistyJiangnan' ||
+    value === 'luoyangPeony' ||
+    value === 'dunhuangApsaras' ||
+    value === 'autumnOsmanthus'
+  )
 }
 
 export function getStoredGlobalThemeMode() {
