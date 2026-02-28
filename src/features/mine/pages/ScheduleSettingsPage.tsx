@@ -1,6 +1,9 @@
 import { type ChangeEvent, useEffect, useRef, useState } from 'react'
+import { CloseOutlined } from '@ant-design/icons'
 import { DatePicker, Input, Modal, Select, Switch, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import { CircleIconButton } from '../../../components/buttons/CircleIconButton'
+import { VerticalSlideSelector } from '../../../components/VerticalSlideSelector'
 import {
   getAutoSimplifyScheduleHintEnabled,
   setAutoSimplifyScheduleHintEnabled,
@@ -14,13 +17,15 @@ import {
   loadActiveScheduleEntry,
   loadSavedScheduleById,
   saveScheduleDataWithOptions,
+  setActiveScheduleTimeSlotPreset,
   switchActiveSchedule,
 } from '../../../core/schedule/storage'
 import { buildQmsExportText, buildWakeupExportText, downloadTextFile } from '../../../core/schedule/export'
 import { getScheduleThemePresetById, SCHEDULE_THEME_PRESETS, type ScheduleThemeId } from '../../../core/schedule/themePresets'
-import { getScheduleThemeId, getScheduleThemePreset, setScheduleThemeId } from '../../../core/schedule/themeStorage'
+import { getTimeSlotPresetName, TIME_SLOT_PRESET_OPTIONS } from '../../../core/schedule/timeSlotPresets'
+import { setScheduleThemeId } from '../../../core/schedule/themeStorage'
 import { getSemesterStartDate, saveSemesterStartDate } from '../../../core/scheduleSettings'
-import type { ScheduleData } from '../../../core/schedule/types'
+import type { ScheduleData, TimeSlotPresetId } from '../../../core/schedule/types'
 import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../../core/navigation/animatedBack'
 
 const { TextArea } = Input
@@ -34,6 +39,16 @@ type TransitionStage = 'entering' | 'entered' | 'closing'
 
 const ENTER_ANIMATION_FRAME_MS = 16
 const CLOSE_TRANSITION_MS = 220
+
+const SCHEDULE_THEME_OPTIONS = SCHEDULE_THEME_PRESETS.map((preset) => ({
+  value: preset.id,
+  label: preset.name,
+}))
+
+const TIME_SLOT_PRESET_SELECTOR_OPTIONS = TIME_SLOT_PRESET_OPTIONS.map((preset) => ({
+  value: preset.id,
+  label: preset.name,
+}))
 
 function formatExportTimestamp(date: Date) {
   const pad = (value: number) => value.toString().padStart(2, '0')
@@ -52,7 +67,6 @@ function ScheduleSettingsPage() {
   const qmsFileInputRef = useRef<HTMLInputElement>(null)
   const htmlFileInputRef = useRef<HTMLInputElement>(null)
   const [isDateModalOpen, setIsDateModalOpen] = useState(false)
-  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isHtmlImportMethodModalOpen, setIsHtmlImportMethodModalOpen] = useState(false)
   const [htmlImportMethod, setHtmlImportMethod] = useState<HtmlImportMethod>('file')
@@ -72,7 +86,14 @@ function ScheduleSettingsPage() {
   const [semesterStartDate, setSemesterStartDate] = useState(() => getSemesterStartDate())
   const [pendingDate, setPendingDate] = useState(semesterStartDate)
   const [scheduleName, setScheduleName] = useState(() => loadActiveScheduleEntry()?.name ?? '')
-  const [themeName, setThemeName] = useState(() => getScheduleThemePreset().name)
+  const [scheduleThemeId, setScheduleThemeIdState] = useState<ScheduleThemeId>(() => {
+    const activeSchedule = loadActiveScheduleEntry()
+    return getScheduleThemePresetById(activeSchedule?.themeId ?? '').id
+  })
+  const [timeSlotPresetId, setTimeSlotPresetId] = useState<TimeSlotPresetId>(() => {
+    const activeSchedule = loadActiveScheduleEntry()
+    return activeSchedule?.timeSlotPresetId ?? 'builtIn'
+  })
   const [transitionStage, setTransitionStage] = useState<TransitionStage>('entering')
   const closeTimerRef = useRef<number | null>(null)
   const enterTimerRef = useRef<number | null>(null)
@@ -136,6 +157,7 @@ function ScheduleSettingsPage() {
   const refreshScheduleState = () => {
     const activeSchedule = loadActiveScheduleEntry()
     setScheduleName(activeSchedule?.name ?? '')
+    setTimeSlotPresetId(activeSchedule?.timeSlotPresetId ?? 'builtIn')
     setSavedSchedules(listSavedSchedules())
   }
 
@@ -227,10 +249,6 @@ function ScheduleSettingsPage() {
     setIsScheduleSwitchModalOpen(true)
   }
 
-  const handleOpenThemeModal = () => {
-    setIsThemeModalOpen(true)
-  }
-
   const handleOpenDeleteSchedule = (scheduleId: string, scheduleTitle: string) => {
     setDeleteTargetScheduleId(scheduleId)
     setDeleteTargetScheduleName(scheduleTitle)
@@ -257,32 +275,42 @@ function ScheduleSettingsPage() {
     messageApi.success('提示信息精简设置已更新')
   }
 
-  const handleCloseThemeModal = () => {
-    setIsThemeModalOpen(false)
-  }
-
   const handleSelectTheme = (themeId: ScheduleThemeId) => {
+    if (themeId === scheduleThemeId) {
+      return
+    }
+
     const isSaved = setScheduleThemeId(themeId)
     if (!isSaved) {
       messageApi.error('课表配色保存失败，请稍后重试')
       return
     }
 
-    const selectedTheme = SCHEDULE_THEME_PRESETS.find((preset) => preset.id === themeId)
-    setThemeName(selectedTheme?.name ?? getScheduleThemePreset().name)
-    setIsThemeModalOpen(false)
+    setScheduleThemeIdState(themeId)
     messageApi.success('课表配色已更新')
   }
 
-  const handleCustomTheme = () => {
-    messageApi.info('即将支持')
+  const handleSelectTimeSlotPreset = (presetId: TimeSlotPresetId) => {
+    if (presetId === timeSlotPresetId) {
+      return
+    }
+
+    const saved = setActiveScheduleTimeSlotPreset(presetId)
+    if (!saved) {
+      messageApi.error('时间表设置保存失败，请稍后重试')
+      return
+    }
+
+    setTimeSlotPresetId(presetId)
+    messageApi.success('时间表设置已更新')
   }
 
   const persistImportedSchedule = (scheduleData: ScheduleData, semesterDate: string) => {
-    const currentThemeId = getScheduleThemeId() || 'skyBlue'
+    const currentThemeId = scheduleThemeId
 
     const result = saveScheduleDataWithOptions(scheduleData, {
       themeId: currentThemeId,
+      timeSlotPresetId: 'builtIn',
       semesterStartDate: semesterDate,
       preferredName: scheduleData.table.name,
       setActive: true,
@@ -338,6 +366,7 @@ function ScheduleSettingsPage() {
 
       const result = saveScheduleDataWithOptions(parsedQms.scheduleData, {
         themeId: nextThemeId,
+        timeSlotPresetId: 'builtIn',
         semesterStartDate: nextSemesterStartDate,
         preferredName: parsedQms.preferredName,
         setActive: true,
@@ -350,8 +379,7 @@ function ScheduleSettingsPage() {
       }
 
       setScheduleThemeId(nextThemeId)
-      const selectedTheme = getScheduleThemePresetById(nextThemeId)
-      setThemeName(selectedTheme.name)
+      setScheduleThemeIdState(nextThemeId)
       saveSemesterStartDate(nextSemesterStartDate)
       setSemesterStartDate(nextSemesterStartDate)
       refreshScheduleState()
@@ -418,8 +446,7 @@ function ScheduleSettingsPage() {
     }
 
     setScheduleThemeId(switchedSchedule.themeId as ScheduleThemeId)
-    const switchedTheme = getScheduleThemePresetById(switchedSchedule.themeId)
-    setThemeName(switchedTheme.name)
+    setScheduleThemeIdState(getScheduleThemePresetById(switchedSchedule.themeId).id)
 
     if (switchedSchedule.semesterStartDate) {
       saveSemesterStartDate(switchedSchedule.semesterStartDate)
@@ -459,8 +486,7 @@ function ScheduleSettingsPage() {
     const nextActiveSchedule = result.nextActiveSchedule
     if (nextActiveSchedule) {
       setScheduleThemeId(nextActiveSchedule.themeId as ScheduleThemeId)
-      const switchedTheme = getScheduleThemePresetById(nextActiveSchedule.themeId)
-      setThemeName(switchedTheme.name)
+      setScheduleThemeIdState(getScheduleThemePresetById(nextActiveSchedule.themeId).id)
 
       if (nextActiveSchedule.semesterStartDate) {
         saveSemesterStartDate(nextActiveSchedule.semesterStartDate)
@@ -529,15 +555,12 @@ function ScheduleSettingsPage() {
           <p className='schedule-settings-subtitle'>Class Schedule Settings</p>
         </div>
 
-        <button
-          type='button'
-          className='schedule-settings-close-button'
-          aria-label='关闭课表设置'
+        <CircleIconButton
+          ariaLabel='关闭课表设置'
+          icon={<CloseOutlined />}
           disabled={transitionStage === 'closing'}
           onClick={handleClose}
-        >
-          ×
-        </button>
+        />
       </header>
 
       <div className='schedule-settings-content'>
@@ -580,15 +603,42 @@ function ScheduleSettingsPage() {
         </p>
 
         <div className='mine-button-group'>
-          <button
-            type='button'
-            className='mine-group-button schedule-settings-action'
-            onClick={handleOpenThemeModal}
-          >
-            设置课表配色
-          </button>
+          <div className='mine-group-button mine-theme-family-panel'>
+            <div className='mine-theme-mode-header'>
+              <span>课表配色</span>
+              <span className='mine-theme-toggle-meta'>{getScheduleThemePresetById(scheduleThemeId).name}</span>
+            </div>
+
+            <div className='mine-theme-family-list'>
+              <VerticalSlideSelector
+                value={scheduleThemeId}
+                options={SCHEDULE_THEME_OPTIONS}
+                onChange={handleSelectTheme}
+                ariaLabel='课表主题切换'
+                className='schedule-theme-selector'
+              />
+            </div>
+          </div>
         </div>
-        <p className='schedule-settings-current-date'>当前配色：{themeName}</p>
+
+        <div className='mine-button-group'>
+          <div className='mine-group-button mine-theme-family-panel'>
+            <div className='mine-theme-mode-header'>
+              <span>时间表设置</span>
+              <span className='mine-theme-toggle-meta'>{getTimeSlotPresetName(timeSlotPresetId)}</span>
+            </div>
+
+            <div className='mine-theme-family-list'>
+              <VerticalSlideSelector
+                value={timeSlotPresetId}
+                options={TIME_SLOT_PRESET_SELECTOR_OPTIONS}
+                onChange={handleSelectTimeSlotPreset}
+                ariaLabel='课表时间表设置'
+                className='schedule-theme-selector'
+              />
+            </div>
+          </div>
+        </div>
 
         <div className='mine-button-group'>
           <div className='mine-group-button mine-setting-row'>
@@ -647,35 +697,6 @@ function ScheduleSettingsPage() {
             setPendingDate(dateString)
           }}
         />
-      </Modal>
-
-      <Modal
-        title='设置课表配色'
-        open={isThemeModalOpen}
-        onCancel={handleCloseThemeModal}
-        footer={null}
-      >
-        <div className='schedule-theme-list'>
-          {SCHEDULE_THEME_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              type='button'
-              className='schedule-theme-button'
-              style={{ backgroundColor: preset.primaryColor }}
-              onClick={() => handleSelectTheme(preset.id)}
-            >
-              {preset.name}
-            </button>
-          ))}
-
-          <button
-            type='button'
-            className='schedule-theme-button schedule-theme-button--custom'
-            onClick={handleCustomTheme}
-          >
-            自定义
-          </button>
-        </div>
       </Modal>
 
       <Modal

@@ -1,4 +1,6 @@
+import { CloseOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
+import { CircleIconButton } from '../../../components/buttons/CircleIconButton'
 
 function ScutPdfImportPage() {
   const navigate = useNavigate()
@@ -20,9 +22,11 @@ function ScutPdfImportPage() {
           <p className='schedule-settings-subtitle'>SCUT PDF Import</p>
         </div>
 
-        <button type='button' className='schedule-settings-close-button' aria-label='关闭页面' onClick={handleClose}>
-          ×
-        </button>
+        <CircleIconButton
+          ariaLabel='关闭页面'
+          icon={<CloseOutlined />}
+          onClick={handleClose}
+        />
       </header>
 
       <div className='schedule-settings-content'>

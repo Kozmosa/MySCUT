@@ -8,8 +8,14 @@ import {
   useRef,
   useState,
 } from 'react'
+import {
+  EllipsisOutlined,
+  LeftOutlined,
+  RightOutlined,
+} from '@ant-design/icons'
 import { Modal } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import { RoundedSquareIconButton } from '../../components/buttons/RoundedSquareIconButton'
 import {
   buildWeekScheduleRenderData,
   createEmptyWeekScheduleRenderData,
@@ -20,7 +26,8 @@ import {
 } from '../../core/schedule/selectors'
 import { getAutoSimplifyScheduleHintEnabled } from '../../core/schedule/displaySettings'
 import { simplifyCourseName, simplifyRoomText, simplifyTeacherText } from '../../core/schedule/displayTextSimplifier'
-import { loadScheduleData } from '../../core/schedule/storage'
+import { loadActiveScheduleEntry } from '../../core/schedule/storage'
+import { resolveScheduleTimeSlotsByPreset } from '../../core/schedule/timeSlotPresets'
 import { getScheduleThemePreset } from '../../core/schedule/themeStorage'
 import type { ScheduleThemePreset } from '../../core/schedule/themePresets'
 import type { ScheduleLesson, WakeupTimeSlot, WeekCellCourse } from '../../core/schedule/types'
@@ -257,11 +264,6 @@ function getWeekMonthLabel(startDateText: string, weekNumber: number, fallbackDa
   return formatMonthLabel(weekStartDate)
 }
 
-function getActiveTimeSlots(timeSlots: WakeupTimeSlot[], timeTableId: number) {
-  const matched = timeSlots.filter((slot) => slot.timeTable === timeTableId)
-  return (matched.length > 0 ? matched : timeSlots).sort((left, right) => left.node - right.node)
-}
-
 function getScheduleLessonCount(lessonCountFromTable: number, timeSlots: WakeupTimeSlot[], lessons: ScheduleLesson[]) {
   const maxNodeInTimeSlots = timeSlots.reduce((max, slot) => Math.max(max, slot.node), 0)
   const maxNodeInLessons = lessons.reduce((max, lesson) => Math.max(max, lesson.endNode), 0)
@@ -466,7 +468,9 @@ function CoursesPage() {
   const [selectedCourses, setSelectedCourses] = useState<WeekCellCourse[]>([])
   const [selectedDay, setSelectedDay] = useState(1)
   const [selectedNode, setSelectedNode] = useState(1)
-  const scheduleData = useMemo(() => loadScheduleData(), [])
+  const activeScheduleEntry = useMemo(() => loadActiveScheduleEntry(), [])
+  const scheduleData = activeScheduleEntry?.scheduleData ?? null
+  const scheduleTimeSlotPresetId = activeScheduleEntry?.timeSlotPresetId ?? 'builtIn'
   const scheduleThemePreset = useMemo(() => getScheduleThemePreset(), [])
   const autoSimplifyHintEnabled = useMemo(() => getAutoSimplifyScheduleHintEnabled(), [])
 
@@ -484,8 +488,8 @@ function CoursesPage() {
       return []
     }
 
-    return getActiveTimeSlots(scheduleData.timeSlots, scheduleData.table.timeTable)
-  }, [scheduleData])
+    return resolveScheduleTimeSlotsByPreset(scheduleData, scheduleTimeSlotPresetId)
+  }, [scheduleData, scheduleTimeSlotPresetId])
 
   const lessonCount = useMemo(() => {
     if (!scheduleData) {
@@ -758,36 +762,21 @@ function CoursesPage() {
         </div>
 
         <div className='courses-actions'>
-          <button
-            type='button'
-            className='courses-menu-button'
-            aria-label='上一周'
+          <RoundedSquareIconButton
+            ariaLabel='上一周'
+            icon={<LeftOutlined />}
             onClick={handleGoPrevWeek}
-          >
-            <span className='courses-menu-arrow' aria-hidden='true'>
-              {'<'}
-            </span>
-          </button>
-          <button
-            type='button'
-            className='courses-menu-button'
-            aria-label='下一周'
+          />
+          <RoundedSquareIconButton
+            ariaLabel='下一周'
+            icon={<RightOutlined />}
             onClick={handleGoNextWeek}
-          >
-            <span className='courses-menu-arrow' aria-hidden='true'>
-              {'>'}
-            </span>
-          </button>
-          <button
-            type='button'
-            className='courses-menu-button'
-            aria-label='更多操作'
+          />
+          <RoundedSquareIconButton
+            ariaLabel='更多操作'
+            icon={<EllipsisOutlined />}
             onClick={() => navigate('/mine/schedule-settings')}
-          >
-            <span className='courses-menu-dots' aria-hidden='true'>
-              ...
-            </span>
-          </button>
+          />
         </div>
       </header>
 

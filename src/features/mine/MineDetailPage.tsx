@@ -1,6 +1,9 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { CloseOutlined } from '@ant-design/icons'
 import { Checkbox, Modal, Switch } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import { CircleIconButton } from '../../components/buttons/CircleIconButton'
+import { VerticalSlideSelector } from '../../components/VerticalSlideSelector'
 import { getUseLocalManual, setUseLocalManual } from '../../core/manual/manualSourceStorage'
 import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../core/navigation/animatedBack'
 import { GLOBAL_THEME_FAMILY_OPTIONS } from '../../core/theme/globalThemePresets'
@@ -169,15 +172,12 @@ function MineDetailPage({ title }: MineDetailPageProps) {
           <p className='schedule-settings-subtitle'>{subtitle}</p>
         </div>
 
-        <button
-          type='button'
-          className='schedule-settings-close-button'
-          aria-label='关闭详情页面'
+        <CircleIconButton
+          ariaLabel='关闭详情页面'
+          icon={<CloseOutlined />}
           disabled={transitionStage === 'closing'}
           onClick={handleClose}
-        >
-          ×
-        </button>
+        />
       </header>
 
       <div className='schedule-settings-content mine-detail-content'>
@@ -193,16 +193,15 @@ function MineDetailPage({ title }: MineDetailPageProps) {
                 </div>
 
                 <div className='mine-theme-family-list'>
-                  {GLOBAL_THEME_FAMILY_OPTIONS.map((item) => (
-                    <button
-                      key={item.id}
-                      type='button'
-                      className={`mine-theme-family-item ${themeFamily === item.id ? 'is-active' : ''}`}
-                      onClick={() => setThemeFamily(item.id)}
-                    >
-                      {item.name}
-                    </button>
-                  ))}
+                  <VerticalSlideSelector
+                    value={themeFamily}
+                    options={GLOBAL_THEME_FAMILY_OPTIONS.map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                    }))}
+                    onChange={setThemeFamily}
+                    ariaLabel='全局主题套装切换'
+                  />
                 </div>
               </div>
             </div>

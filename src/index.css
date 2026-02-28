@@ -143,9 +143,11 @@ body {
   color: var(--text-secondary);
 }
 
-.courses-menu-button {
+.app-icon-button-square {
   width: 36px;
   height: 36px;
+  min-width: 36px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -158,25 +160,17 @@ body {
   letter-spacing: 1px;
 }
 
+.app-icon-button-square .anticon {
+  font-size: 18px;
+}
+
 .courses-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.courses-menu-arrow {
-  display: inline-block;
-  line-height: 1;
-  transform: translateY(-1px);
-}
-
-.courses-menu-dots {
-  display: inline-block;
-  line-height: 1;
-  transform: translateY(-1px);
-}
-
-.courses-menu-button:active {
+.app-icon-button-square:active {
   background: var(--button-soft-bg-active);
 }
 
@@ -709,7 +703,8 @@ body {
 .theme-transitioning .schedule-settings-page,
 .theme-transitioning .schedule-settings-title,
 .theme-transitioning .schedule-settings-subtitle,
-.theme-transitioning .schedule-settings-close-button,
+.theme-transitioning .app-icon-button-square,
+.theme-transitioning .app-icon-button-circle,
 .theme-transitioning .schedule-settings-current-date,
 .theme-transitioning .schedule-switch-item,
 .theme-transitioning .schedule-switch-meta,
@@ -907,18 +902,27 @@ body {
   color: var(--text-secondary);
 }
 
-.schedule-settings-close-button {
+.app-icon-button-circle {
   width: 36px;
   height: 36px;
+  min-width: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   border-radius: 50%;
   background: var(--button-soft-bg);
   color: var(--button-soft-text);
-  font-size: 24px;
+  font-size: 18px;
   line-height: 1;
 }
 
-.schedule-settings-close-button:active {
+.app-icon-button-circle .anticon {
+  font-size: 18px;
+}
+
+.app-icon-button-circle:active {
   background: var(--button-soft-bg-active);
 }
 
