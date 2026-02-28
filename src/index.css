@@ -1061,3 +1061,28 @@ body {
   color: var(--text-secondary);
   font-size: 13px;
 }
+
+.schedule-pdf-error {
+  margin: 8px 4px 0;
+  font-size: 13px;
+  color: #c43636;
+}
+
+.schedule-pdf-json-card {
+  margin-top: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  max-height: min(56vh, 680px);
+  overflow: auto;
+}
+
+.schedule-pdf-json {
+  margin: 0;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
+  white-space: pre;
+}
