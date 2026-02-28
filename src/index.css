@@ -700,6 +700,7 @@ body {
 .theme-transitioning .mine-theme-toggle-meta,
 .theme-transitioning .mine-detail-card-title,
 .theme-transitioning .mine-detail-card-description,
+.theme-transitioning .mine-update-check-button,
 .theme-transitioning .schedule-settings-page,
 .theme-transitioning .schedule-settings-header,
 .theme-transitioning .schedule-settings-title,
@@ -795,6 +796,20 @@ body {
   text-decoration: underline;
   cursor: pointer;
   font-family: inherit;
+}
+
+.mine-update-check-button {
+  border-color: var(--border-soft);
+  background: var(--bg-surface-alt);
+  color: var(--text-accent);
+  border-radius: 10px;
+  height: 34px;
+  padding: 0 14px;
+  font-weight: 600;
+}
+
+.mine-update-check-button:not(:disabled):active {
+  background: var(--bg-surface-muted);
 }
 
 .mine-legal-content p {

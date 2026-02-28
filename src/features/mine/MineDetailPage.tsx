@@ -1,6 +1,6 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { CloseOutlined } from '@ant-design/icons'
-import { Checkbox, Modal, Switch } from 'antd'
+import { Button, Checkbox, Modal, Switch, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { CircleIconButton } from '../../components/buttons/CircleIconButton'
 import { VerticalSlideSelector } from '../../components/VerticalSlideSelector'
@@ -9,6 +9,7 @@ import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../core/
 import { GLOBAL_THEME_FAMILY_OPTIONS } from '../../core/theme/globalThemePresets'
 import { APP_TODO_ITEMS, MANUAL_TODO_ITEMS } from '../../generated/todoSnapshot'
 import { useGlobalTheme } from '../../platform/web/theme/GlobalThemeProvider'
+import { checkForAppUpdate } from '../../services/update/checkForUpdate'
 
 type MineDetailPageProps = {
   title: string
@@ -82,6 +83,7 @@ const LICENSE_ITEMS = [
 
 function MineDetailPage({ title }: MineDetailPageProps) {
   const navigate = useNavigate()
+  const [messageApi, contextHolder] = message.useMessage()
   const { themeFamily, mode, resolvedMode, setThemeFamily, setMode } = useGlobalTheme()
   const subtitle = DETAIL_SUBTITLE_MAP[title] ?? 'Details'
   const detailItems = DETAIL_ITEMS_MAP[title] ?? DETAIL_ITEMS_MAP['更多']
@@ -89,6 +91,7 @@ function MineDetailPage({ title }: MineDetailPageProps) {
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false)
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false)
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(false)
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
   const [transitionStage, setTransitionStage] = useState<TransitionStage>('entering')
   const closeTimerRef = useRef<number | null>(null)
   const enterTimerRef = useRef<number | null>(null)
@@ -158,6 +161,45 @@ function MineDetailPage({ title }: MineDetailPageProps) {
     setUseLocalManual(checked)
   }
 
+  const handleCheckUpdate = async () => {
+    if (isCheckingUpdate) {
+      return
+    }
+
+    setIsCheckingUpdate(true)
+
+    try {
+      const result = await checkForAppUpdate({
+        localVersion: __APP_VERSION__,
+      })
+
+      if (result.status === 'up-to-date') {
+        messageApi.success('当前已是最新版本')
+        return
+      }
+
+      Modal.confirm({
+        title: `发现新版本 v${result.latestVersion}`,
+        content: `当前版本 v${result.localVersion}，检测来源：${result.providerName}`,
+        okText: '去更新',
+        cancelText: '稍后',
+        onOk: () => {
+          if (!result.downloadUrl) {
+            messageApi.error('远程未提供下载链接')
+            return
+          }
+
+          window.open(result.downloadUrl, '_blank', 'noopener,noreferrer')
+        },
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '检查更新失败，请稍后重试'
+      messageApi.error(errorMessage)
+    } finally {
+      setIsCheckingUpdate(false)
+    }
+  }
+
   const segmentStyle = {
     '--segment-index': THEME_MODE_INDEX[mode],
   } as CSSProperties
@@ -166,6 +208,7 @@ function MineDetailPage({ title }: MineDetailPageProps) {
     <section
       className={`schedule-settings-page mine-detail-page settings-view-transition settings-view-transition--${transitionStage}`}
     >
+      {contextHolder}
       <header className='schedule-settings-header'>
         <div>
           <p className='schedule-settings-title'>{title}</p>
@@ -260,6 +303,18 @@ function MineDetailPage({ title }: MineDetailPageProps) {
           </>
         ) : title === '更多' ? (
           <>
+            <div className='mine-button-group'>
+              <div className='mine-group-button mine-setting-row'>
+                <div className='mine-setting-copy'>
+                  <p className='mine-detail-card-title'>当前版本</p>
+                  <p className='mine-detail-card-description'>{`v${__APP_VERSION__}`}</p>
+                </div>
+                <Button className='mine-update-check-button' loading={isCheckingUpdate} onClick={handleCheckUpdate}>
+                  检查更新
+                </Button>
+              </div>
+            </div>
+
             <div className='mine-button-group'>
               <div className='mine-group-button mine-detail-card-item'>
                 <p className='mine-detail-card-title'>关于</p>
