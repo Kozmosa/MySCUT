@@ -23,14 +23,20 @@ import { simplifyCourseName, simplifyRoomText, simplifyTeacherText } from '../..
 import { loadScheduleData } from '../../core/schedule/storage'
 import { getScheduleThemePreset } from '../../core/schedule/themeStorage'
 import type { ScheduleThemePreset } from '../../core/schedule/themePresets'
-import type { WeekCellCourse } from '../../core/schedule/types'
+import type { ScheduleLesson, WakeupTimeSlot, WeekCellCourse } from '../../core/schedule/types'
 import { getSemesterStartDate } from '../../core/scheduleSettings'
 
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
-const LESSON_INDEXES = Array.from({ length: 11 }, (_, index) => index + 1)
+const MAX_LESSON_COUNT = 12
+const TIME_PLACEHOLDER = '--:--'
 const SCROLL_HINT_THRESHOLD = 2
 const PRELOAD_WEEK_RADIUS = 3
 const EMPTY_WEEK_RENDER_DATA = createEmptyWeekScheduleRenderData()
+
+type LessonTime = {
+  startTime: string
+  endTime: string
+}
 
 type ScheduleScrollPaneProps = {
   children: ReactNode
@@ -190,8 +196,86 @@ function getCurrentDateText(date: Date) {
   return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
 }
 
+function parseLocalDate(dateText: string) {
+  const match = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) {
+    return null
+  }
+
+  const year = Number.parseInt(match[1], 10)
+  const month = Number.parseInt(match[2], 10)
+  const day = Number.parseInt(match[3], 10)
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return null
+  }
+
+  const date = new Date(year, month - 1, day)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function addDays(baseDate: Date, days: number) {
+  return new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + days)
+}
+
+function formatMonthDay(date: Date) {
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${month}/${day}`
+}
+
+function formatMonthLabel(date: Date) {
+  return `${date.getMonth() + 1}月`
+}
+
+function formatTimeText(timeText: string) {
+  const match = timeText.trim().match(/^(\d{1,2}):(\d{2})$/)
+  if (!match) {
+    return TIME_PLACEHOLDER
+  }
+
+  return `${Number.parseInt(match[1], 10)}:${match[2]}`
+}
+
+function getWeekdayDateLabels(startDateText: string, weekNumber: number) {
+  const semesterStart = parseLocalDate(startDateText)
+  if (!semesterStart) {
+    return WEEKDAY_LABELS.map(() => '--/--')
+  }
+
+  const weekStartDate = addDays(semesterStart, (weekNumber - 1) * 7)
+  return WEEKDAY_LABELS.map((_, index) => formatMonthDay(addDays(weekStartDate, index)))
+}
+
+function getWeekMonthLabel(startDateText: string, weekNumber: number, fallbackDate: Date) {
+  const semesterStart = parseLocalDate(startDateText)
+  if (!semesterStart) {
+    return formatMonthLabel(fallbackDate)
+  }
+
+  const weekStartDate = addDays(semesterStart, (weekNumber - 1) * 7)
+  return formatMonthLabel(weekStartDate)
+}
+
+function getActiveTimeSlots(timeSlots: WakeupTimeSlot[], timeTableId: number) {
+  const matched = timeSlots.filter((slot) => slot.timeTable === timeTableId)
+  return (matched.length > 0 ? matched : timeSlots).sort((left, right) => left.node - right.node)
+}
+
+function getScheduleLessonCount(lessonCountFromTable: number, timeSlots: WakeupTimeSlot[], lessons: ScheduleLesson[]) {
+  const maxNodeInTimeSlots = timeSlots.reduce((max, slot) => Math.max(max, slot.node), 0)
+  const maxNodeInLessons = lessons.reduce((max, lesson) => Math.max(max, lesson.endNode), 0)
+  const maxNode = Math.max(lessonCountFromTable, maxNodeInTimeSlots, maxNodeInLessons, 1)
+
+  return Math.min(MAX_LESSON_COUNT, maxNode)
+}
+
 function getWeekNumber(date: Date, startDateText: string) {
-  const semesterStart = new Date(startDateText)
+  const semesterStart = parseLocalDate(startDateText)
+  if (!semesterStart) {
+    return 1
+  }
+
   const semesterStartAtMidnight = new Date(
     semesterStart.getFullYear(),
     semesterStart.getMonth(),
@@ -307,11 +391,12 @@ function renderScheduleTable(
   themePreset: ScheduleThemePreset,
   autoSimplifyHintEnabled: boolean,
   weekRenderData: WeekScheduleRenderData,
+  lessonIndexes: number[],
+  lessonTimes: LessonTime[],
+  weekdayDateLabels: string[],
+  monthLabel: string,
   onOpenDetail: (courses: WeekCellCourse[], day: number, node: number) => void,
 ) {
-  const today = new Date()
-  const monthLabel = `${today.getMonth() + 1}月`
-
   return (
     <table className='schedule-table'>
       <thead>
@@ -319,19 +404,22 @@ function renderScheduleTable(
           <th scope='col' className='schedule-month-header'>
             {monthLabel}
           </th>
-          {WEEKDAY_LABELS.map((weekday) => (
+          {WEEKDAY_LABELS.map((weekday, dayIndex) => (
             <th key={weekday} scope='col' className='schedule-weekday-header'>
-              {weekday}
+              <span className='schedule-weekday-label'>{weekday}</span>
+              <span className='schedule-weekday-date'>{weekdayDateLabels[dayIndex] ?? '--/--'}</span>
             </th>
           ))}
         </tr>
       </thead>
 
       <tbody>
-        {LESSON_INDEXES.map((lessonNumber) => (
+        {lessonIndexes.map((lessonNumber, lessonIndex) => (
           <tr key={lessonNumber}>
             <th scope='row' className='schedule-lesson-header'>
-              {lessonNumber}
+              <span className='schedule-lesson-index'>{lessonNumber}</span>
+              <span className='schedule-lesson-time'>{lessonTimes[lessonIndex]?.startTime ?? TIME_PLACEHOLDER}</span>
+              <span className='schedule-lesson-time'>{lessonTimes[lessonIndex]?.endTime ?? TIME_PLACEHOLDER}</span>
             </th>
 
             {WEEKDAY_LABELS.map((weekday, dayIndex) => {
@@ -391,6 +479,70 @@ function CoursesPage() {
 
   const swipeState = useMemo(() => createSwipeState(currentWeek, swipeDirection), [currentWeek, swipeDirection])
 
+  const activeTimeSlots = useMemo(() => {
+    if (!scheduleData) {
+      return []
+    }
+
+    return getActiveTimeSlots(scheduleData.timeSlots, scheduleData.table.timeTable)
+  }, [scheduleData])
+
+  const lessonCount = useMemo(() => {
+    if (!scheduleData) {
+      return MAX_LESSON_COUNT
+    }
+
+    return getScheduleLessonCount(scheduleData.table.nodes, activeTimeSlots, scheduleData.lessons)
+  }, [activeTimeSlots, scheduleData])
+
+  const lessonIndexes = useMemo(
+    () => Array.from({ length: lessonCount }, (_, index) => index + 1),
+    [lessonCount],
+  )
+
+  const lessonTimes = useMemo(() => {
+    const timeSlotMap = new Map<number, WakeupTimeSlot>()
+    activeTimeSlots.forEach((slot) => {
+      if (!timeSlotMap.has(slot.node)) {
+        timeSlotMap.set(slot.node, slot)
+      }
+    })
+
+    return lessonIndexes.map((lessonNumber) => {
+      const slot = timeSlotMap.get(lessonNumber)
+      return {
+        startTime: formatTimeText(slot?.startTime ?? ''),
+        endTime: formatTimeText(slot?.endTime ?? ''),
+      }
+    })
+  }, [activeTimeSlots, lessonIndexes])
+
+  const prevWeekdayDateLabels = useMemo(
+    () => getWeekdayDateLabels(semesterStartDate, swipeState.prevWeek),
+    [semesterStartDate, swipeState.prevWeek],
+  )
+  const currentWeekdayDateLabels = useMemo(
+    () => getWeekdayDateLabels(semesterStartDate, swipeState.currentWeek),
+    [semesterStartDate, swipeState.currentWeek],
+  )
+  const nextWeekdayDateLabels = useMemo(
+    () => getWeekdayDateLabels(semesterStartDate, swipeState.nextWeek),
+    [semesterStartDate, swipeState.nextWeek],
+  )
+
+  const prevMonthLabel = useMemo(
+    () => getWeekMonthLabel(semesterStartDate, swipeState.prevWeek, currentDate),
+    [currentDate, semesterStartDate, swipeState.prevWeek],
+  )
+  const currentMonthLabel = useMemo(
+    () => getWeekMonthLabel(semesterStartDate, swipeState.currentWeek, currentDate),
+    [currentDate, semesterStartDate, swipeState.currentWeek],
+  )
+  const nextMonthLabel = useMemo(
+    () => getWeekMonthLabel(semesterStartDate, swipeState.nextWeek, currentDate),
+    [currentDate, semesterStartDate, swipeState.nextWeek],
+  )
+
   const weekRenderDataCache = useMemo(() => {
     const cache = new Map<number, WeekScheduleRenderData>()
 
@@ -402,11 +554,11 @@ function CoursesPage() {
     const weekEnd = currentWeek + PRELOAD_WEEK_RADIUS
 
     for (let week = weekStart; week <= weekEnd; week += 1) {
-      cache.set(week, buildWeekScheduleRenderData(scheduleData, week))
+      cache.set(week, buildWeekScheduleRenderData(scheduleData, week, lessonCount))
     }
 
     return cache
-  }, [currentWeek, scheduleData])
+  }, [currentWeek, lessonCount, scheduleData])
 
   const getWeekRenderData = (weekNumber: number) => weekRenderDataCache.get(weekNumber) ?? EMPTY_WEEK_RENDER_DATA
 
@@ -654,6 +806,10 @@ function CoursesPage() {
                 scheduleThemePreset,
                 autoSimplifyHintEnabled,
                 getWeekRenderData(swipeState.prevWeek),
+                lessonIndexes,
+                lessonTimes,
+                prevWeekdayDateLabels,
+                prevMonthLabel,
                 handleOpenCourseDetail,
               )}
             </ScheduleScrollPane>
@@ -664,6 +820,10 @@ function CoursesPage() {
                 scheduleThemePreset,
                 autoSimplifyHintEnabled,
                 getWeekRenderData(swipeState.currentWeek),
+                lessonIndexes,
+                lessonTimes,
+                currentWeekdayDateLabels,
+                currentMonthLabel,
                 handleOpenCourseDetail,
               )}
             </ScheduleScrollPane>
@@ -674,6 +834,10 @@ function CoursesPage() {
                 scheduleThemePreset,
                 autoSimplifyHintEnabled,
                 getWeekRenderData(swipeState.nextWeek),
+                lessonIndexes,
+                lessonTimes,
+                nextWeekdayDateLabels,
+                nextMonthLabel,
                 handleOpenCourseDetail,
               )}
             </ScheduleScrollPane>
