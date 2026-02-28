@@ -701,6 +701,7 @@ body {
 .theme-transitioning .mine-detail-card-title,
 .theme-transitioning .mine-detail-card-description,
 .theme-transitioning .schedule-settings-page,
+.theme-transitioning .schedule-settings-header,
 .theme-transitioning .schedule-settings-title,
 .theme-transitioning .schedule-settings-subtitle,
 .theme-transitioning .app-icon-button-square,
@@ -867,20 +868,27 @@ body {
 }
 
 .schedule-settings-page {
-  height: 100%;
+  height: auto;
   min-height: 100vh;
   background: var(--bg-page);
-  padding: 16px;
-  padding-top: calc(16px + env(safe-area-inset-top));
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  padding: 0 16px calc(24px + env(safe-area-inset-bottom));
   max-width: 560px;
   margin: 0 auto;
 }
 
 .schedule-settings-header {
+  position: sticky;
+  top: 0;
+  z-index: 12;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  margin: 0 -16px;
+  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+  background: var(--overlay-glass);
+  border-bottom: 1px solid transparent;
+  backdrop-filter: blur(20px) saturate(155%);
+  -webkit-backdrop-filter: blur(20px) saturate(155%);
 }
 
 .schedule-settings-title,
@@ -927,7 +935,7 @@ body {
 }
 
 .schedule-settings-content {
-  margin-top: 24px;
+  margin-top: 16px;
 }
 
 .schedule-settings-action {
