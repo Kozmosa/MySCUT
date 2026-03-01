@@ -4,6 +4,12 @@
 
 - 2026-02-27
 
+## 后续状态（2026-03 校准）
+
+- 本文记录的是 0227 阶段快照，主题套装范围已在后续迭代中扩展。
+- 当前全局主题 family 不再仅有 `default | palacePlum`，已扩展为 7 套。
+- 以当前实现为准请优先参考：`LLM-Working/GlobalThemeImpl0228.md`、`src/core/theme/types.ts`、`src/core/theme/globalThemePresets.ts`。
+
 ## 相关 commit
 
 - `f050241`

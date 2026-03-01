@@ -81,6 +81,7 @@ type ScheduleLesson = {
   tableId: number
   day: 1 | 2 | 3 | 4 | 5 | 6 | 7
   startNode: number
+  endNode: number
   startWeek: number
   endWeek: number
   weekStep: number
@@ -150,10 +151,13 @@ type SavedSchedule = {
   name: string
   source: 'wakeup' | 'scutHtml'
   themeId: string
+  timeSlotPresetId: TimeSlotPresetId
   semesterStartDate: string
   createdAt: number
   scheduleData: ScheduleData
 }
+
+type TimeSlotPresetId = 'builtIn' | 'universityTown' | 'wushan' | 'international'
 
 type ScheduleLibrary = {
   version: 1
@@ -171,8 +175,14 @@ type ScheduleLibrary = {
 
 - 新导入课表会追加到 `schedules[]`
 - 默认设为当前活动课表（更新 `activeScheduleId`）
-- 切换课表时会恢复该课表绑定的 `themeId` 与 `semesterStartDate`
+- 切换课表时会恢复该课表绑定的 `themeId`、`semesterStartDate` 与 `timeSlotPresetId`
 - 若仅存在历史 `scheduleData`，首次读取会自动迁移进 `scheduleLibrary`
+
+时间表预设说明：
+
+- `timeSlotPresetId = 'builtIn'`：使用课表自带 `timeSlots`
+- `timeSlotPresetId = 'universityTown' | 'wushan' | 'international'`：使用内置校区预设时间
+- 该字段按课表条目保存，不是全局设置
 
 ## 7. 渲染辅助结构
 
@@ -201,7 +211,7 @@ type WeekCellCourse = {
 
 课表配色方案与课表数据本体解耦，独立存储于 `themePresets` 与 `themeStorage` 模块。
 
-### 7.1 配色预设结构
+### 8.1 配色预设结构
 
 ```ts
 type ScheduleThemeId =
@@ -246,9 +256,12 @@ type ScheduleThemePreset = {
 
 ### 8.3 当前预设
 
-- `默认`（`skyBlue`）
-  - `primaryColor`: `#63a9ff`
-  - `textColorPrimary`: `#ffffff`
-  - `textColorSecondary`: `#dfe4ee`
-  - `textColorBadge`: `#ffffff`
-  - 对应当前 WakeUp 样例配色风格
+当前已内置 7 套课表配色预设：
+
+- `skyBlue`（默认）
+- `bambooGrove`（清雅竹林）
+- `palacePlum`（宫墙红梅）
+- `mistyJiangnan`（烟雨水乡）
+- `luoyangPeony`（洛都牡丹）
+- `dunhuangApsaras`（敦煌飞天）
+- `autumnOsmanthus`（金秋丹桂）

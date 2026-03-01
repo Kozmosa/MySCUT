@@ -4,6 +4,13 @@
 
 日期：2026-02-26
 
+## 后续状态（2026-03 校准）
+
+- 本文记录的是 0226 阶段快照，部分“已知边界”已被后续实现覆盖。
+- 当前已支持多课表管理与切换（不再是“暂未提供”）。
+- 当前课表渲染节次上限已从 11 调整为动态推导并封顶 12。
+- 以当前实现为准请优先参考：`LLM-Working/DATA_STRUCTURE.md`、`LLM-Working/GlobalThemeImpl0228.md`、`src/core/schedule/storage.ts`、`src/core/schedule/selectors.ts`。
+
 本次实现完成了课程表从导入到展示的基础闭环：
 
 1. 设计并落地统一课程表数据结构

@@ -9,6 +9,13 @@
 - adbb59e
 - a03678b
 
+## 后续状态（2026-03 校准）
+
+- 本文记录的是 0226 阶段快照，交互形态已在后续迭代中更新。
+- 课表配色设置已从“弹窗按钮列表”改为页面内联 `VerticalSlideSelector`。
+- 课表主题也已从单一 `skyBlue` 扩展到多套预设。
+- 以当前实现为准请优先参考：`LLM-Working/GlobalThemeImpl0228.md`、`src/features/mine/pages/ScheduleSettingsPage.tsx`、`src/core/schedule/themePresets.ts`。
+
 ## 本次实现目标
 
 - 将课表配色方案从课程页渲染逻辑中解耦到独立配置模块
