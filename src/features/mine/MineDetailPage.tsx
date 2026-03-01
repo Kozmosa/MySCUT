@@ -1,8 +1,9 @@
-import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CloseOutlined } from '@ant-design/icons'
 import { Button, Checkbox, Modal, Switch, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { CircleIconButton } from '../../components/buttons/CircleIconButton'
+import { HorizontalSlideSelector } from '../../components/HorizontalSlideSelector'
 import { VerticalSlideSelector } from '../../components/VerticalSlideSelector'
 import { getUseLocalManual, setUseLocalManual } from '../../core/manual/manualSourceStorage'
 import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../core/navigation/animatedBack'
@@ -31,11 +32,11 @@ const RESOLVED_THEME_MODE_LABELS = {
   dark: '暗色',
 } as const
 
-const THEME_MODE_INDEX: Record<keyof typeof GLOBAL_THEME_MODE_LABELS, number> = {
-  light: 0,
-  dark: 1,
-  system: 2,
-}
+const GLOBAL_THEME_MODE_OPTIONS = [
+  { value: 'light', label: '亮色' },
+  { value: 'dark', label: '暗色' },
+  { value: 'system', label: '跟随系统' },
+] as const
 
 const DETAIL_SUBTITLE_MAP: Record<string, string> = {
   '全局设置': 'Global Settings',
@@ -200,10 +201,6 @@ function MineDetailPage({ title }: MineDetailPageProps) {
     }
   }
 
-  const segmentStyle = {
-    '--segment-index': THEME_MODE_INDEX[mode],
-  } as CSSProperties
-
   return (
     <section
       className={`schedule-settings-page mine-detail-page settings-view-transition settings-view-transition--${transitionStage}`}
@@ -256,33 +253,15 @@ function MineDetailPage({ title }: MineDetailPageProps) {
                   <span className='mine-theme-toggle-meta'>{GLOBAL_THEME_MODE_LABELS[mode]}</span>
                 </div>
 
-                <div className='mine-theme-segment' role='group' aria-label='全局主题切换' style={segmentStyle}>
-                  <span className='mine-theme-segment-indicator' aria-hidden='true' />
-                  <button
-                    type='button'
-                    className={`mine-theme-segment-button ${mode === 'light' ? 'is-active' : ''}`}
-                    aria-pressed={mode === 'light'}
-                    onClick={() => setMode('light')}
-                  >
-                    亮色
-                  </button>
-                  <button
-                    type='button'
-                    className={`mine-theme-segment-button ${mode === 'dark' ? 'is-active' : ''}`}
-                    aria-pressed={mode === 'dark'}
-                    onClick={() => setMode('dark')}
-                  >
-                    暗色
-                  </button>
-                  <button
-                    type='button'
-                    className={`mine-theme-segment-button ${mode === 'system' ? 'is-active' : ''}`}
-                    aria-pressed={mode === 'system'}
-                    onClick={() => setMode('system')}
-                  >
-                    跟随系统
-                  </button>
-                </div>
+                <HorizontalSlideSelector
+                  value={mode}
+                  options={GLOBAL_THEME_MODE_OPTIONS.map((item) => ({
+                    value: item.value,
+                    label: item.label,
+                  }))}
+                  onChange={setMode}
+                  ariaLabel='全局主题切换'
+                />
 
                 <div className='mine-theme-mode-footer'>
                   <span>当前生效主题</span>
