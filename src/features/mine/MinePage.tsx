@@ -126,6 +126,9 @@ function MinePage() {
         <Link to='/mine/global-settings' className='mine-group-button'>
           全局设置
         </Link>
+        <Link to='/mine/ai-settings' className='mine-group-button'>
+          AI设置
+        </Link>
       </div>
 
       <div className='mine-button-group'>
