@@ -38,7 +38,7 @@ export function setStoredGlobalThemeMode(mode: GlobalThemeMode) {
 }
 
 export function getPreferredGlobalThemeMode() {
-  return getStoredGlobalThemeMode() ?? 'light'
+  return getStoredGlobalThemeMode() ?? 'system'
 }
 
 export function getStoredGlobalThemeFamily() {
