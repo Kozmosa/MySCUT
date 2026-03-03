@@ -1,9 +1,11 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import AppRoutes from './app/routes'
 import { useHardwareBackButton } from './platform/capacitor/useHardwareBackButton'
+import { useAndroidViewportInset } from './platform/capacitor/useAndroidViewportInset'
 
 function App() {
   useHardwareBackButton()
+  useAndroidViewportInset()
 
   const location = useLocation()
   const isMineDetailPage = location.pathname.startsWith('/mine/')
