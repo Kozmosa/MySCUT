@@ -8,6 +8,7 @@ import type {
   WakeupTableConfig,
   WakeupTimeSlot,
 } from './types'
+import { trimRedundantTimeSlots } from './timeSlotTrim'
 
 function parseJsonLine<T>(line: string, index: number) {
   try {
@@ -198,6 +199,7 @@ export function parseWakeupScheduleText(text: string): ScheduleData {
   const lessons = parseJsonLine<WakeupLesson[]>(lines[4], 5)
 
   assertValidWakeupShape(meta, timeSlots, tableConfig, courses, lessons)
+  const trimmedTimeSlots = trimRedundantTimeSlots(timeSlots)
 
   const normalizedCourses: ScheduleCourse[] = courses.map((course) => ({
     id: course.id,
@@ -209,7 +211,7 @@ export function parseWakeupScheduleText(text: string): ScheduleData {
   }))
 
   const normalizedLessons: ScheduleLesson[] = lessons.map((lesson, index) => {
-    const range = resolveWakeupLessonRange(lesson, timeSlots, tableConfig.nodes)
+    const range = resolveWakeupLessonRange(lesson, trimmedTimeSlots, tableConfig.nodes)
 
     return {
       instanceId: `${lesson.id}-${lesson.day}-${range.startNode}-${lesson.startWeek}-${lesson.endWeek}-${index}`,
@@ -247,13 +249,13 @@ export function parseWakeupScheduleText(text: string): ScheduleData {
       showSun: tableConfig.showSun,
       timeTable: tableConfig.timeTable,
     },
-    timeSlots,
+    timeSlots: trimmedTimeSlots,
     courses: normalizedCourses,
     lessons: normalizedLessons,
     raw: {
       kind: 'wakeup',
       meta,
-      timeSlots,
+      timeSlots: trimmedTimeSlots,
       tableConfig,
       courses,
       lessons,

@@ -188,21 +188,39 @@ type ScheduleLibrary = {
 
 ## 7. QMS 导出结构（交换层）
 
-QMS 为导出/导入交换格式，顶层结构：
+QMS 为导出/导入交换格式，当前主版本为 `v2`（保留 `v1` 导入兼容）。
 
 ```ts
-type QmsExportV1 = {
+type QmsExportV2 = {
   schema: 'qms'
-  version: 1
+  version: 2
   exportedAt: number
-  schedule: SavedSchedule
+  schedule: {
+    name: string
+    source: 'wakeup' | 'scutHtml' | 'intersection'
+    themeId: string
+    semesterStartDate: string
+    createdAt: number
+    timeSlotPresetId: TimeSlotPresetId
+    scheduleData: {
+      version: 1
+      source: 'wakeup' | 'scutHtml' | 'intersection'
+      importedAt: number
+      table: ScheduleData['table']
+      timeSlots?: WakeupTimeSlot[]
+      courses: ScheduleCourse[]
+      lessons: ScheduleLesson[]
+    }
+  }
 }
 ```
 
 说明：
 
-- QMS 不改变内部 `SavedSchedule` / `ScheduleData` 定义，仅作为交换封装。
-- 详细字段说明与示例见：`LLM-Working/QMS_Schema.md`。
+- `v2` 不再导出 `raw`。
+- `timeSlotPresetId === 'builtIn'` 时附带完整 `timeSlots`；其他预设只写预设 ID。
+- 导入 `v1/v2` 时都会执行时间表裁剪：命中相邻 `endTime` 相差 10 分钟后，丢弃该命中对及其后续节点。
+- 详细字段说明见：`LLM-Working/QMS_Schema.md`。
 
 ### 7.1 压缩QMS（Clipboard 交换编码）
 

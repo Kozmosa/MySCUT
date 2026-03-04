@@ -3,18 +3,36 @@ import type {
   ScheduleCourse,
   ScheduleData,
   ScheduleLesson,
+  TimeSlotPresetId,
   WakeupCourse,
   WakeupLesson,
   WakeupMeta,
   WakeupTableConfig,
   WakeupTimeSlot,
 } from './types'
+import { resolveScheduleTimeSlotsByPreset } from './timeSlotPresets'
 
 type QmsExportPayload = {
   schema: 'qms'
-  version: 1
+  version: 2
   exportedAt: number
-  schedule: SavedSchedule
+  schedule: {
+    name: string
+    source: SavedSchedule['source']
+    themeId: string
+    semesterStartDate: string
+    createdAt: number
+    timeSlotPresetId: TimeSlotPresetId
+    scheduleData: {
+      version: 1
+      source: ScheduleData['source']
+      importedAt: number
+      table: ScheduleData['table']
+      timeSlots?: WakeupTimeSlot[]
+      courses: ScheduleCourse[]
+      lessons: ScheduleLesson[]
+    }
+  }
 }
 
 export type ExportSanitizeOptions = {
@@ -22,6 +40,38 @@ export type ExportSanitizeOptions = {
   removeCourseName: boolean
   removeTeacherName: boolean
   removeRoom: boolean
+}
+
+export function applyTimeSlotPresetForExport(savedSchedule: SavedSchedule, presetId: TimeSlotPresetId): SavedSchedule {
+  const resolvedTimeSlots = resolveScheduleTimeSlotsByPreset(savedSchedule.scheduleData, presetId)
+  const resolvedTimeTable = resolvedTimeSlots[0]?.timeTable ?? savedSchedule.scheduleData.table.timeTable
+
+  const scheduleData: ScheduleData = {
+    ...savedSchedule.scheduleData,
+    table: {
+      ...savedSchedule.scheduleData.table,
+      timeTable: resolvedTimeTable,
+    },
+    timeSlots: resolvedTimeSlots,
+    raw: savedSchedule.scheduleData.raw,
+  }
+
+  if (savedSchedule.scheduleData.raw.kind === 'wakeup') {
+    scheduleData.raw = {
+      ...savedSchedule.scheduleData.raw,
+      timeSlots: resolvedTimeSlots,
+      tableConfig: {
+        ...savedSchedule.scheduleData.raw.tableConfig,
+        timeTable: resolvedTimeTable,
+      },
+    }
+  }
+
+  return {
+    ...savedSchedule,
+    timeSlotPresetId: presetId,
+    scheduleData,
+  }
 }
 
 function formatWakeupStartDate(dateText: string) {
@@ -218,11 +268,28 @@ export function buildWakeupExportText(savedSchedule: SavedSchedule) {
 }
 
 export function buildQmsExportText(savedSchedule: SavedSchedule) {
+  const shouldWriteBuiltInTimeSlots = savedSchedule.timeSlotPresetId === 'builtIn'
   const payload: QmsExportPayload = {
     schema: 'qms',
-    version: 1,
+    version: 2,
     exportedAt: Date.now(),
-    schedule: savedSchedule,
+    schedule: {
+      name: savedSchedule.name,
+      source: savedSchedule.source,
+      themeId: savedSchedule.themeId,
+      semesterStartDate: savedSchedule.semesterStartDate,
+      createdAt: savedSchedule.createdAt,
+      timeSlotPresetId: savedSchedule.timeSlotPresetId,
+      scheduleData: {
+        version: savedSchedule.scheduleData.version,
+        source: savedSchedule.scheduleData.source,
+        importedAt: savedSchedule.scheduleData.importedAt,
+        table: savedSchedule.scheduleData.table,
+        ...(shouldWriteBuiltInTimeSlots ? { timeSlots: savedSchedule.scheduleData.timeSlots } : {}),
+        courses: savedSchedule.scheduleData.courses,
+        lessons: savedSchedule.scheduleData.lessons,
+      },
+    },
   }
 
   return JSON.stringify(payload, null, 2)

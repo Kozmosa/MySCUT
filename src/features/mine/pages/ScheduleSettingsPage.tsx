@@ -22,6 +22,7 @@ import {
   switchActiveSchedule,
 } from '../../../core/schedule/storage'
 import {
+  applyTimeSlotPresetForExport,
   buildQmsExportText,
   buildWakeupExportText,
   downloadTextFile,
@@ -107,6 +108,8 @@ function ScheduleSettingsPage() {
   const [isExportFormatModalOpen, setIsExportFormatModalOpen] = useState(false)
   const [exportTargetScheduleId, setExportTargetScheduleId] = useState('')
   const [exportFormat, setExportFormat] = useState<ScheduleExportFormat>('wakeup')
+  const [isExportCustomTimeSlotEnabled, setIsExportCustomTimeSlotEnabled] = useState(false)
+  const [exportTimeSlotPresetId, setExportTimeSlotPresetId] = useState<TimeSlotPresetId>('builtIn')
   const [isExportSanitizeEnabled, setIsExportSanitizeEnabled] = useState(false)
   const [exportSanitizeOptions, setExportSanitizeOptions] = useState<ExportSanitizeOptions>(DEFAULT_EXPORT_SANITIZE_OPTIONS)
   const [savedSchedules, setSavedSchedules] = useState<SavedScheduleItem[]>(() => listSavedSchedules())
@@ -441,7 +444,7 @@ function ScheduleSettingsPage() {
 
       const result = saveScheduleDataWithOptions(parsedQms.scheduleData, {
         themeId: nextThemeId,
-        timeSlotPresetId: 'builtIn',
+        timeSlotPresetId: parsedQms.timeSlotPresetId,
         semesterStartDate: nextSemesterStartDate,
         preferredName: parsedQms.preferredName,
         setActive: true,
@@ -454,6 +457,7 @@ function ScheduleSettingsPage() {
 
       setScheduleThemeId(nextThemeId)
       setScheduleThemeIdState(nextThemeId)
+      setTimeSlotPresetId(parsedQms.timeSlotPresetId)
       saveSemesterStartDate(nextSemesterStartDate)
       setSemesterStartDate(nextSemesterStartDate)
       refreshScheduleState()
@@ -594,6 +598,10 @@ function ScheduleSettingsPage() {
       return
     }
 
+    const targetSchedule = loadSavedScheduleById(exportTargetScheduleId)
+    const nextPresetId = targetSchedule?.timeSlotPresetId ?? 'builtIn'
+    setExportTimeSlotPresetId(nextPresetId)
+    setIsExportCustomTimeSlotEnabled(false)
     setIsScheduleExportModalOpen(false)
     setIsExportFormatModalOpen(true)
   }
@@ -614,9 +622,11 @@ function ScheduleSettingsPage() {
 
     try {
       const baseFileName = `${sanitizeFileName(targetSchedule.name)}_${formatExportTimestamp(new Date())}`
+      const effectiveTimeSlotPresetId = isExportCustomTimeSlotEnabled ? exportTimeSlotPresetId : targetSchedule.timeSlotPresetId
+      const timeSlotBoundSchedule = applyTimeSlotPresetForExport(targetSchedule, effectiveTimeSlotPresetId)
       const exportSchedule = isExportSanitizeEnabled
-        ? sanitizeScheduleForExport(targetSchedule, exportSanitizeOptions)
-        : targetSchedule
+        ? sanitizeScheduleForExport(timeSlotBoundSchedule, exportSanitizeOptions)
+        : timeSlotBoundSchedule
 
       if (exportFormat === 'wakeup') {
         const wakeupText = buildWakeupExportText(exportSchedule)
@@ -966,6 +976,35 @@ function ScheduleSettingsPage() {
             { value: 'qmsCompressedClipboard', label: '压缩QMS（复制到剪贴板）' },
           ]}
         />
+
+        <div className='schedule-export-sanitize-card'>
+          <div className='schedule-export-sanitize-row'>
+            <div className='mine-setting-copy'>
+              <p className='mine-detail-card-title'>自定义写入的时间表</p>
+              <p className='mine-detail-card-description'>开启后可指定导出时写入的时间表预设</p>
+            </div>
+            <Switch checked={isExportCustomTimeSlotEnabled} onChange={setIsExportCustomTimeSlotEnabled} />
+          </div>
+
+          {isExportCustomTimeSlotEnabled && (
+            <div className='schedule-export-sanitize-options'>
+              <div className='mine-theme-mode-header'>
+                <span>导出时间表</span>
+                <span className='mine-theme-toggle-meta'>{getTimeSlotPresetName(exportTimeSlotPresetId)}</span>
+              </div>
+
+              <div className='mine-theme-family-list'>
+                <VerticalSlideSelector
+                  value={exportTimeSlotPresetId}
+                  options={TIME_SLOT_PRESET_SELECTOR_OPTIONS}
+                  onChange={setExportTimeSlotPresetId}
+                  ariaLabel='导出时间表设置'
+                  className='schedule-theme-selector'
+                />
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className='schedule-export-sanitize-card'>
           <div className='schedule-export-sanitize-row'>

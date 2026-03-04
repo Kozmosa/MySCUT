@@ -106,9 +106,23 @@
   - `name`
   - `source`
   - `themeId`
+  - `timeSlotPresetId`
   - `semesterStartDate`
   - `createdAt`
   - `scheduleData`
+
+## QMS 导入要点（v1/v2）
+
+- 解析入口：`src/core/schedule/importQms.ts`
+- 兼容版本：
+  - `v1`：旧版完整 `SavedSchedule` 封装
+  - `v2`：精简交换结构（不含 `raw`）
+- 导入后统一执行时间表裁剪：
+  - 顺序遍历 `timeSlots`
+  - 命中相邻 `endTime` 相差 `10min` 后，丢弃命中对及其后续节点
+- 对 `v2`：
+  - `timeSlotPresetId` 非 `builtIn` 时，不依赖文件内 `timeSlots`
+  - `timeSlotPresetId = 'builtIn'` 时读取并写入 `timeSlots`
 
 ## 关联文档
 
