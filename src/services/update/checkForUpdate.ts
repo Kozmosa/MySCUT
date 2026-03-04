@@ -101,13 +101,35 @@ function isRemoteVersionManifest(value: unknown): value is RemoteVersionManifest
   return typeof (latest as { version?: unknown }).version === 'string'
 }
 
-function resolveDownloadUrl(item: RemoteVersionItem) {
-  if (typeof item.assets?.apk === 'string' && item.assets.apk.trim()) {
-    return item.assets.apk
+function resolveGithubDownloadUrl(sourceUrl: string, providerOrder: UpdateLinkProviderId[]) {
+  for (const providerId of providerOrder) {
+    const providerUrl = buildProviderUrl(providerId, sourceUrl).trim()
+    if (providerUrl) {
+      return providerUrl
+    }
+  }
+
+  return sourceUrl
+}
+
+function resolveDownloadUrl(item: RemoteVersionItem, providerOrder: UpdateLinkProviderId[]) {
+  const apkUrl = typeof item.assets?.apk === 'string' ? item.assets.apk.trim() : ''
+  if (apkUrl) {
+    const normalizedApkUrl = apkUrl.toLowerCase()
+
+    if (normalizedApkUrl.includes('manual')) {
+      return buildProviderUrl('raw', apkUrl)
+    }
+
+    if (normalizedApkUrl.includes('github')) {
+      return resolveGithubDownloadUrl(apkUrl, providerOrder)
+    }
+
+    return buildProviderUrl('raw', apkUrl)
   }
 
   if (typeof item.releaseUrl === 'string' && item.releaseUrl.trim()) {
-    return item.releaseUrl
+    return buildProviderUrl('raw', item.releaseUrl.trim())
   }
 
   return null
@@ -137,7 +159,7 @@ async function loadVersionManifest(providerOrder: UpdateLinkProviderId[]): Promi
         providerId,
         providerName: getUpdateLinkProvider(providerId).name,
         latestVersion: responseJson.latest.version,
-        downloadUrl: resolveDownloadUrl(responseJson.latest),
+        downloadUrl: resolveDownloadUrl(responseJson.latest, providerOrder),
       }
     } catch (error) {
       const reason = error instanceof Error ? error.message : '未知错误'

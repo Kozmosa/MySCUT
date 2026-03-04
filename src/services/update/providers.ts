@@ -1,4 +1,4 @@
-export type UpdateLinkProviderId = 'github' | 'fastgit' | 'jsdelivr' | 'unpkg'
+export type UpdateLinkProviderId = 'github' | 'fastgit' | 'jsdelivr' | 'unpkg' | 'raw'
 
 export type UpdateLinkProvider = {
   id: UpdateLinkProviderId
@@ -57,6 +57,12 @@ const UPDATE_LINK_PROVIDERS: Record<UpdateLinkProviderId, UpdateLinkProvider> = 
     id: 'unpkg',
     name: 'unpkg',
     enabled: false,
+    buildUrl: (url) => url,
+  },
+  raw: {
+    id: 'raw',
+    name: 'Raw',
+    enabled: true,
     buildUrl: (url) => url,
   },
 }
