@@ -661,12 +661,8 @@ function writeReleaseNoteFile({ tag, note }) {
   return noteFilePath
 }
 
-function stageCommitAndTag({ version, tag, assetPaths, noteFilePath }) {
+function stageCommitAndTag({ version, tag, noteFilePath }) {
   const filesToAdd = ['package.json', 'versions.json']
-
-  for (const assetPath of assetPaths) {
-    filesToAdd.push(basename(assetPath))
-  }
 
   if (noteFilePath) {
     filesToAdd.push(relative(rootDir, noteFilePath).replace(/\\/g, '/'))
@@ -839,7 +835,6 @@ async function main() {
   stageCommitAndTag({
     version: nextVersion,
     tag,
-    assetPaths: preparedAssets,
     noteFilePath,
   })
 
