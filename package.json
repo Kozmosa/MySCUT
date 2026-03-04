@@ -10,8 +10,8 @@
     "release": "node scripts/release.mjs",
     "build": "node scripts/buildApp.mjs",
     "build:full": "node scripts/buildFull.mjs",
-    "build:android": "npm run build:full",
-    "build:ios": "npm run build:full",
+    "build:android": "node scripts/buildAndroid.mjs",
+    "build:ios": "node scripts/buildIos.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -52,7 +52,6 @@ try {
   run('npm run docs:build:platform', docsProjectDir)
   copyDocsDist()
   cleanupDocsArtifacts()
-  run('npx cap sync android', rootDir)
 } finally {
   restoreManualCommit(pinnedManualCommit)
 }

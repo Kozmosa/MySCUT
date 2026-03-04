@@ -3,6 +3,10 @@ dist
 .DS_Store
 *.local
 
+# App Bundles
+*.apk
+*.ipa
+
 # Logs
 logs
 *.log

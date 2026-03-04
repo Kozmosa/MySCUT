@@ -541,7 +541,7 @@ async function main() {
   console.log(`Updated package.json version to ${nextVersion}`)
 
   console.log('Running full build pipeline...')
-  run('npm run build:full', rootDir)
+  run('npm run build:android', rootDir)
 
   console.log('Opening Android Studio project...')
   run('npx cap open android', rootDir)
