@@ -101,7 +101,7 @@ export type ScheduleLesson = {
 
 export type ScheduleData = {
   version: 1
-  source: 'wakeup' | 'scutHtml'
+  source: 'wakeup' | 'scutHtml' | 'intersection'
   importedAt: number
   table: {
     id: number
@@ -153,4 +153,4 @@ export type SavedSchedule = {
   scheduleData: ScheduleData
 }
 
-export type TimeSlotPresetId = 'builtIn' | 'universityTown' | 'wushan' | 'international'
+export type TimeSlotPresetId = 'builtIn' | 'universityTown' | 'wushan' | 'international' | 'union'

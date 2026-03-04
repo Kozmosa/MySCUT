@@ -9,13 +9,16 @@ import {
   useState,
 } from 'react'
 import {
+  CloseOutlined,
   EllipsisOutlined,
   LeftOutlined,
   RightOutlined,
 } from '@ant-design/icons'
-import { Modal } from 'antd'
-import { useNavigate } from 'react-router-dom'
+import { Input, Modal, message } from 'antd'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { RoundedSquareIconButton } from '../../components/buttons/RoundedSquareIconButton'
+import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../core/navigation/animatedBack'
+import { clearIntersectionPreviewPayload, loadIntersectionPreviewPayload } from '../../core/schedule/intersectionPreview'
 import {
   buildWeekScheduleRenderData,
   createEmptyWeekScheduleRenderData,
@@ -26,11 +29,11 @@ import {
 } from '../../core/schedule/selectors'
 import { getAutoSimplifyScheduleHintEnabled } from '../../core/schedule/displaySettings'
 import { simplifyCourseName, simplifyRoomText, simplifyTeacherText } from '../../core/schedule/displayTextSimplifier'
-import { loadActiveScheduleEntry } from '../../core/schedule/storage'
+import { loadActiveScheduleEntry, saveScheduleDataWithOptions } from '../../core/schedule/storage'
 import { resolveScheduleTimeSlotsByPreset } from '../../core/schedule/timeSlotPresets'
 import { getScheduleThemePreset } from '../../core/schedule/themeStorage'
 import type { ScheduleThemePreset } from '../../core/schedule/themePresets'
-import type { ScheduleLesson, WakeupTimeSlot, WeekCellCourse } from '../../core/schedule/types'
+import type { ScheduleLesson, TimeSlotPresetId, WakeupTimeSlot, WeekCellCourse } from '../../core/schedule/types'
 import { getSemesterStartDate } from '../../core/scheduleSettings'
 
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
@@ -39,6 +42,7 @@ const TIME_PLACEHOLDER = '--:--'
 const SCROLL_HINT_THRESHOLD = 2
 const PRELOAD_WEEK_RADIUS = 3
 const EMPTY_WEEK_RENDER_DATA = createEmptyWeekScheduleRenderData()
+const INTERSECTION_PREVIEW_PATH = '/courses/intersection-preview'
 
 type LessonTime = {
   startTime: string
@@ -312,6 +316,11 @@ function getColorFromWakeup(color: string, fallbackColor: string) {
   return fallbackColor
 }
 
+function isColorLiteral(colorText: string) {
+  const value = colorText.trim()
+  return /^#[0-9a-fA-F]{6}$/.test(value) || /^rgba?\(/.test(value)
+}
+
 function getCourseCardColor(
   themePreset: ScheduleThemePreset,
   day: number,
@@ -323,6 +332,10 @@ function getCourseCardColor(
 
   if (themePreset.mode === 'wakeup') {
     return getColorFromWakeup(courseColor, fallbackColor)
+  }
+
+  if (isColorLiteral(courseColor)) {
+    return courseColor
   }
 
   if (themePreset.mode === 'preset') {
@@ -361,17 +374,27 @@ function renderCourseCell(
   const displayCourseName = simplifyCourseName(firstCourse.name)
   const displayRoom = autoSimplifyHintEnabled ? simplifyRoomText(firstCourse.room) : firstCourse.room
   const displayTeacher = simplifyTeacherText(firstCourse.teacher)
+  const isIntersectionCard = firstCourse.lesson.type === 99
+  const isRedCard = backgroundColor === '#d4380d'
+  const resolvedCardTextStyle = isRedCard
+    ? {
+        ...cardTextStyle,
+        '--course-text-primary': '#ffffff',
+        '--course-text-secondary': '#ffffff',
+        '--course-text-badge': '#ffffff',
+      }
+    : cardTextStyle
 
   return (
     <button
       type='button'
       className='course-card'
-      style={{ backgroundColor, ...cardTextStyle }}
+      style={{ backgroundColor, ...resolvedCardTextStyle }}
       onClick={() => onOpenDetail(cellCourses, day, lessonNumber)}
     >
       <p className='course-card-name'>{displayCourseName}</p>
-      <p className='course-card-meta'>{displayRoom || '-'}</p>
-      <p className='course-card-meta'>{displayTeacher || '-'}</p>
+      {!isIntersectionCard && <p className='course-card-meta'>{displayRoom || '-'}</p>}
+      {!isIntersectionCard && <p className='course-card-meta'>{displayTeacher || '-'}</p>}
       {extraCount > 0 && <span className='course-card-more'>+{extraCount}</span>}
     </button>
   )
@@ -455,6 +478,8 @@ function renderScheduleTable(
 
 function CoursesPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [messageApi, contextHolder] = message.useMessage()
   const [weekOffset, setWeekOffset] = useState(0)
   const [swipeDirection, setSwipeDirection] = useState<'prev' | 'next' | null>(null)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
@@ -468,9 +493,26 @@ function CoursesPage() {
   const [selectedCourses, setSelectedCourses] = useState<WeekCellCourse[]>([])
   const [selectedDay, setSelectedDay] = useState(1)
   const [selectedNode, setSelectedNode] = useState(1)
-  const activeScheduleEntry = useMemo(() => loadActiveScheduleEntry(), [])
+  const persistedActiveScheduleEntry = useMemo(() => loadActiveScheduleEntry(), [])
+  const isIntersectionPreviewMode = location.pathname === INTERSECTION_PREVIEW_PATH
+  const intersectionPreviewPayload = isIntersectionPreviewMode ? loadIntersectionPreviewPayload() : null
+  const activeScheduleEntry = isIntersectionPreviewMode
+    ? intersectionPreviewPayload
+      ? {
+          ...persistedActiveScheduleEntry,
+          id: 'intersection-preview',
+          name: '课表取交集',
+          source: 'intersection',
+          themeId: persistedActiveScheduleEntry?.themeId ?? 'skyBlue',
+          timeSlotPresetId: 'union' as const,
+          semesterStartDate: persistedActiveScheduleEntry?.semesterStartDate ?? getSemesterStartDate(),
+          createdAt: Date.now(),
+          scheduleData: intersectionPreviewPayload.scheduleData,
+        }
+      : null
+    : persistedActiveScheduleEntry
   const scheduleData = activeScheduleEntry?.scheduleData ?? null
-  const scheduleTimeSlotPresetId = activeScheduleEntry?.timeSlotPresetId ?? 'builtIn'
+  const scheduleTimeSlotPresetId: TimeSlotPresetId = activeScheduleEntry?.timeSlotPresetId ?? 'builtIn'
   const scheduleThemePreset = useMemo(() => getScheduleThemePreset(), [])
   const autoSimplifyHintEnabled = useMemo(() => getAutoSimplifyScheduleHintEnabled(), [])
 
@@ -752,9 +794,90 @@ function CoursesPage() {
   }
 
   const selectedWeekday = WEEKDAY_LABELS[selectedDay - 1] ?? ''
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false)
+  const [isSaveNameModalOpen, setIsSaveNameModalOpen] = useState(false)
+  const [saveNameInput, setSaveNameInput] = useState('')
+
+  const finalizePreviewExit = () => {
+    clearIntersectionPreviewPayload()
+    if (window.history.length > 1) {
+      navigate(-1)
+      return
+    }
+
+    navigate('/mine/schedule-intersection', { replace: true })
+  }
+
+  const handleRequestExitPreview = () => {
+    if (!isIntersectionPreviewMode) {
+      navigate('/mine/schedule-settings')
+      return
+    }
+
+    setIsExitConfirmOpen(true)
+  }
+
+  useEffect(() => {
+    if (!isIntersectionPreviewMode) {
+      return
+    }
+
+    const handleAnimatedBack = (event: Event) => {
+      const customEvent = event as CustomEvent<AnimatedBackRequestDetail>
+      if (customEvent.detail.handled) {
+        return
+      }
+
+      setIsExitConfirmOpen(true)
+      customEvent.detail.handled = true
+    }
+
+    window.addEventListener(ANIMATED_BACK_EVENT, handleAnimatedBack)
+    return () => {
+      window.removeEventListener(ANIMATED_BACK_EVENT, handleAnimatedBack)
+    }
+  }, [isIntersectionPreviewMode])
+
+  const handleConfirmSavePreview = () => {
+    if (!intersectionPreviewPayload) {
+      setIsExitConfirmOpen(false)
+      finalizePreviewExit()
+      return
+    }
+
+    setSaveNameInput(intersectionPreviewPayload.defaultSaveName)
+    setIsExitConfirmOpen(false)
+    setIsSaveNameModalOpen(true)
+  }
+
+  const handleSubmitSaveName = () => {
+    if (!intersectionPreviewPayload) {
+      setIsSaveNameModalOpen(false)
+      finalizePreviewExit()
+      return
+    }
+
+    const preferredName = saveNameInput.trim() || intersectionPreviewPayload.defaultSaveName || '课表取交集'
+    const saveResult = saveScheduleDataWithOptions(intersectionPreviewPayload.scheduleData, {
+      themeId: activeScheduleEntry?.themeId ?? 'skyBlue',
+      semesterStartDate: getSemesterStartDate(),
+      timeSlotPresetId: 'union',
+      preferredName,
+      setActive: true,
+    })
+
+    if (!saveResult.ok) {
+      messageApi.error('课表保存失败，请检查浏览器存储空间')
+      return
+    }
+
+    setIsSaveNameModalOpen(false)
+    finalizePreviewExit()
+  }
 
   return (
     <div className='courses-page'>
+      {contextHolder}
       <header className='courses-header'>
         <div className='courses-date-panel'>
           <p className='courses-date'>{dateText}</p>
@@ -773,9 +896,9 @@ function CoursesPage() {
             onClick={handleGoNextWeek}
           />
           <RoundedSquareIconButton
-            ariaLabel='更多操作'
-            icon={<EllipsisOutlined />}
-            onClick={() => navigate('/mine/schedule-settings')}
+            ariaLabel={isIntersectionPreviewMode ? '关闭临时课表' : '更多操作'}
+            icon={isIntersectionPreviewMode ? <CloseOutlined /> : <EllipsisOutlined />}
+            onClick={handleRequestExitPreview}
           />
         </div>
       </header>
@@ -856,6 +979,35 @@ function CoursesPage() {
             </article>
           ))}
         </div>
+      </Modal>
+
+      <Modal
+        title='保存交集课表'
+        open={isExitConfirmOpen}
+        onOk={handleConfirmSavePreview}
+        onCancel={() => {
+          setIsExitConfirmOpen(false)
+          finalizePreviewExit()
+        }}
+        okText='保存'
+        cancelText='不保存'
+      >
+        <p className='schedule-switch-empty'>退出临时课表前，是否保存本次取交集结果？</p>
+      </Modal>
+
+      <Modal
+        title='设置保存名称'
+        open={isSaveNameModalOpen}
+        onOk={handleSubmitSaveName}
+        onCancel={() => setIsSaveNameModalOpen(false)}
+        okText='确定保存'
+        cancelText='取消'
+      >
+        <Input
+          value={saveNameInput}
+          placeholder={intersectionPreviewPayload?.defaultSaveName ?? 'A/B/Z'}
+          onChange={(event) => setSaveNameInput(event.target.value)}
+        />
       </Modal>
     </div>
   )

@@ -14,7 +14,7 @@
 ```ts
 type ScheduleData = {
   version: 1
-  source: 'wakeup' | 'scutHtml'
+  source: 'wakeup' | 'scutHtml' | 'intersection'
   importedAt: number
   table: {
     id: number
@@ -51,6 +51,7 @@ type ScheduleData = {
 
 - `version`：结构版本号，当前为 `1`
 - `source`：数据来源标识，当前支持 `'wakeup' | 'scutHtml'`
+- `source='intersection'`：课表取交集计算生成的临时/可保存课表
 - `importedAt`：导入时间戳（毫秒）
 - `table/timeSlots/courses/lessons`：规范化后的业务字段
 - `raw`：按来源保留原始结构
@@ -157,7 +158,7 @@ type SavedSchedule = {
   scheduleData: ScheduleData
 }
 
-type TimeSlotPresetId = 'builtIn' | 'universityTown' | 'wushan' | 'international'
+type TimeSlotPresetId = 'builtIn' | 'universityTown' | 'wushan' | 'international' | 'union'
 
 type ScheduleLibrary = {
   version: 1
@@ -182,6 +183,7 @@ type ScheduleLibrary = {
 
 - `timeSlotPresetId = 'builtIn'`：使用课表自带 `timeSlots`
 - `timeSlotPresetId = 'universityTown' | 'wushan' | 'international'`：使用内置校区预设时间
+- `timeSlotPresetId = 'union'`：使用并集预设（五山/国际/大学城边界并集切分）
 - 该字段按课表条目保存，不是全局设置
 
 ## 7. QMS 导出结构（交换层）

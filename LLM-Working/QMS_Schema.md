@@ -49,6 +49,7 @@ type SavedSchedule = {
 - `id`：导出时的原课表 ID，仅作为信息保留；导入时应重新分配新 ID
 - `name`：课表显示名
 - `source`：原始来源标识（WakeUp 或华工 HTML）
+- 取交集功能保存的课表可使用 `source='intersection'`
 - `themeId`：课表绑定的配色方案 ID
 - `semesterStartDate`：课表绑定的学期起始日期（`YYYY-MM-DD`）
 - `createdAt`：原课表创建时间戳

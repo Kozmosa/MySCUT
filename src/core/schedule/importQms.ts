@@ -27,7 +27,7 @@ function isScheduleData(value: unknown): value is ScheduleData {
     return false
   }
 
-  if (value.source !== 'wakeup' && value.source !== 'scutHtml') {
+  if (value.source !== 'wakeup' && value.source !== 'scutHtml' && value.source !== 'intersection') {
     return false
   }
 

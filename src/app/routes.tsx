@@ -21,6 +21,11 @@ const ScheduleSettingsPage = lazy(async () => {
   return { default: module.default }
 })
 
+const ScheduleIntersectionPage = lazy(async () => {
+  const module = await import('../features/mine/pages/ScheduleIntersectionPage')
+  return { default: module.default }
+})
+
 const AiSettingsPage = lazy(async () => {
   const module = await import('../features/mine/pages/AiSettingsPage')
   return { default: module.default }
@@ -42,9 +47,11 @@ function AppRoutes() {
       <Routes>
         <Route path='/' element={<Navigate to='/courses' replace />} />
         <Route path='/courses' element={<CoursesPage />} />
+        <Route path='/courses/intersection-preview' element={<CoursesPage />} />
         <Route path='/manual' element={<ManualPage />} />
         <Route path='/mine' element={<MinePage />} />
         <Route path='/mine/schedule-settings' element={<ScheduleSettingsPage />} />
+        <Route path='/mine/schedule-intersection' element={<ScheduleIntersectionPage />} />
         <Route path='/mine/ai-settings' element={<AiSettingsPage />} />
         <Route path='/mine/import-scut-pdf' element={<ScutPdfImportPage />} />
         <Route path='/mine/global-settings' element={<MineDetailPage title='全局设置' />} />

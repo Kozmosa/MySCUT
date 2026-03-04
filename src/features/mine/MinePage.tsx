@@ -132,6 +132,12 @@ function MinePage() {
       </div>
 
       <div className='mine-button-group'>
+        <Link to='/mine/schedule-intersection' className='mine-group-button'>
+          课表取交集
+        </Link>
+      </div>
+
+      <div className='mine-button-group'>
         <Link to='/mine/faq' className='mine-group-button'>
           常见问答
         </Link>
