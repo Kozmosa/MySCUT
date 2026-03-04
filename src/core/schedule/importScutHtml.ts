@@ -6,32 +6,108 @@ type ParseScutHtmlOptions = {
   fallbackSemesterStartDate: string
 }
 
+type WeekRange = {
+  startWeek: number
+  endWeek: number
+  weekStep: number
+}
+
 function cleanText(text: string) {
   return text.replace(/\s+/g, ' ').trim()
 }
 
-function parseWeekRange(text: string) {
-  const rangeMatch = text.match(/(\d+)\s*-\s*(\d+)\s*周/)
-  if (rangeMatch) {
+function normalizeParityValue(input: string | undefined) {
+  if (!input) {
+    return ''
+  }
+
+  if (input.includes('单')) {
+    return 'single'
+  }
+
+  if (input.includes('双')) {
+    return 'double'
+  }
+
+  return ''
+}
+
+function normalizeWeekRange(startWeek: number, endWeek: number, parity: string): WeekRange | null {
+  const safeStart = Math.max(1, Math.min(startWeek, endWeek))
+  const safeEnd = Math.max(safeStart, Math.max(startWeek, endWeek))
+
+  if (parity === 'single') {
+    const normalizedStart = safeStart % 2 === 1 ? safeStart : safeStart + 1
+    if (normalizedStart > safeEnd) {
+      return null
+    }
+
     return {
-      startWeek: Number.parseInt(rangeMatch[1], 10),
-      endWeek: Number.parseInt(rangeMatch[2], 10),
+      startWeek: normalizedStart,
+      endWeek: safeEnd,
+      weekStep: 2,
     }
   }
 
-  const singleMatch = text.match(/(\d+)\s*周/)
-  if (singleMatch) {
-    const week = Number.parseInt(singleMatch[1], 10)
+  if (parity === 'double') {
+    const normalizedStart = safeStart % 2 === 0 ? safeStart : safeStart + 1
+    if (normalizedStart > safeEnd) {
+      return null
+    }
+
     return {
-      startWeek: week,
-      endWeek: week,
+      startWeek: normalizedStart,
+      endWeek: safeEnd,
+      weekStep: 2,
     }
   }
 
   return {
-    startWeek: 1,
-    endWeek: 20,
+    startWeek: safeStart,
+    endWeek: safeEnd,
+    weekStep: 1,
   }
+}
+
+function parseWeekRanges(text: string): WeekRange[] {
+  const normalizedText = text
+    .replace(/（/g, '(')
+    .replace(/）/g, ')')
+    .replace(/，/g, ',')
+  const matches = normalizedText.matchAll(/(\d+)(?:\s*-\s*(\d+))?\s*周(?:\s*\((单|双)\))?(?:\s*(单周|双周))?/g)
+
+  const ranges: WeekRange[] = []
+  const seen = new Set<string>()
+
+  for (const match of matches) {
+    const rawStart = Number.parseInt(match[1], 10)
+    const rawEnd = match[2] ? Number.parseInt(match[2], 10) : rawStart
+    const parity = normalizeParityValue(match[3] || match[4])
+    const range = normalizeWeekRange(rawStart, rawEnd, parity)
+    if (!range) {
+      continue
+    }
+
+    const dedupeKey = `${range.startWeek}-${range.endWeek}-${range.weekStep}`
+    if (seen.has(dedupeKey)) {
+      continue
+    }
+
+    seen.add(dedupeKey)
+    ranges.push(range)
+  }
+
+  if (ranges.length > 0) {
+    return ranges
+  }
+
+  return [
+    {
+      startWeek: 1,
+      endWeek: 20,
+      weekStep: 1,
+    },
+  ]
 }
 
 function parseNodeRange(text: string, fallbackNode: number, fallbackSpan: number) {
@@ -119,7 +195,7 @@ export function parseScutScheduleHtml(html: string, options: ParseScutHtmlOption
         continue
       }
 
-      const weekInfo = parseWeekRange(blockText)
+      const weekRanges = parseWeekRanges(blockText)
       const nodeInfo = parseNodeRange(blockText, fallbackNode, rowSpan)
 
       const roomElement = Array.from(block.querySelectorAll('p')).find((p) => p.querySelector('.glyphicon-map-marker'))
@@ -128,24 +204,26 @@ export function parseScutScheduleHtml(html: string, options: ParseScutHtmlOption
       const room = cleanText(roomElement?.textContent ?? '')
       const teacher = cleanText(teacherElement?.textContent ?? '')
 
-      lessons.push({
-        instanceId: `scut-${day}-${nodeInfo.startNode}-${weekInfo.startWeek}-${weekInfo.endWeek}-${lessons.length}-${index}`,
-        courseId: course.id,
-        tableId: 1,
-        day: Math.min(7, Math.max(1, day)) as 1 | 2 | 3 | 4 | 5 | 6 | 7,
-        startNode: nodeInfo.startNode,
-        endNode: nodeInfo.endNode,
-        startWeek: weekInfo.startWeek,
-        endWeek: weekInfo.endWeek,
-        weekStep: 1,
-        ownTime: false,
-        startTime: '',
-        endTime: '',
-        room,
-        teacher,
-        type: 0,
-        level: 0,
-      })
+      for (const [rangeIndex, weekRange] of weekRanges.entries()) {
+        lessons.push({
+          instanceId: `scut-${day}-${nodeInfo.startNode}-${weekRange.startWeek}-${weekRange.endWeek}-${weekRange.weekStep}-${lessons.length}-${index}-${rangeIndex}`,
+          courseId: course.id,
+          tableId: 1,
+          day: Math.min(7, Math.max(1, day)) as 1 | 2 | 3 | 4 | 5 | 6 | 7,
+          startNode: nodeInfo.startNode,
+          endNode: nodeInfo.endNode,
+          startWeek: weekRange.startWeek,
+          endWeek: weekRange.endWeek,
+          weekStep: weekRange.weekStep,
+          ownTime: false,
+          startTime: '',
+          endTime: '',
+          room,
+          teacher,
+          type: 0,
+          level: 0,
+        })
+      }
     }
   }
 
