@@ -34,3 +34,6 @@ GITHUB_TOKEN.SEC
 
 # Local test artifacts
 LLM-Working/test.pdf
+
+# Local session logs
+session-ses_*.md
