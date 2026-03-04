@@ -1143,3 +1143,33 @@ body {
   font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
   white-space: pre;
 }
+
+.scut-jw-tip-card,
+.scut-jw-status-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  padding: 12px;
+}
+
+.scut-jw-tip-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scut-jw-tip-title,
+.scut-jw-tip-text {
+  margin: 0;
+}
+
+.scut-jw-tip-title {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.scut-jw-tip-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+}

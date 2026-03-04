@@ -36,6 +36,11 @@ const ScutPdfImportPage = lazy(async () => {
   return { default: module.default }
 })
 
+const ScutJwImportPage = lazy(async () => {
+  const module = await import('../features/mine/pages/ScutJwImportPage')
+  return { default: module.default }
+})
+
 const MineDetailPage = lazy(async () => {
   const module = await import('../features/mine/MineDetailPage')
   return { default: module.default }
@@ -54,6 +59,7 @@ function AppRoutes() {
         <Route path='/mine/schedule-intersection' element={<ScheduleIntersectionPage />} />
         <Route path='/mine/ai-settings' element={<AiSettingsPage />} />
         <Route path='/mine/import-scut-pdf' element={<ScutPdfImportPage />} />
+        <Route path='/mine/import-scut-jw' element={<ScutJwImportPage />} />
         <Route path='/mine/global-settings' element={<MineDetailPage title='全局设置' />} />
         <Route path='/mine/faq' element={<MineDetailPage title='常见问答' />} />
         <Route path='/mine/more' element={<MineDetailPage title='更多' />} />
