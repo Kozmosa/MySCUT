@@ -796,6 +796,8 @@ function ScheduleSettingsPage() {
         cancelText='取消'
       >
         <DatePicker
+          className='schedule-semester-date-picker'
+          inputReadOnly
           style={{ width: '100%' }}
           format='YYYY-MM-DD'
           placeholder={semesterStartDate}

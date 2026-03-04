@@ -1028,6 +1028,12 @@ body {
   display: none;
 }
 
+@supports (-webkit-touch-callout: none) {
+  .schedule-semester-date-picker .ant-picker-input > input {
+    font-size: 16px;
+  }
+}
+
 .schedule-theme-selector {
   --slide-gap: 4px;
   --slide-item-height: 38px;
