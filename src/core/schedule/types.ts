@@ -95,6 +95,7 @@ export type ScheduleLesson = {
   endTime: string
   room: string
   teacher: string
+  detailText?: string
   type: number
   level: number
 }
@@ -137,6 +138,7 @@ export type WeekCellCourse = {
   courseId: number
   name: string
   color: string
+  credit: number
   teacher: string
   room: string
   lesson: ScheduleLesson

@@ -12,6 +12,16 @@ type WeekRange = {
   weekStep: number
 }
 
+type ScutHtmlDetailEntry = {
+  day: number
+  startNode: number
+  endNode: number
+  courseName: string
+  weekRange: WeekRange
+  credit: number
+  detailText: string
+}
+
 function cleanText(text: string) {
   return text.replace(/\s+/g, ' ').trim()
 }
@@ -130,6 +140,98 @@ function parseNodeRange(text: string, fallbackNode: number, fallbackSpan: number
   }
 }
 
+function parseCreditFromText(text: string) {
+  const matched = text.match(/学分\s*[:：]\s*([0-9]+(?:\.[0-9]+)?)/)
+  if (!matched) {
+    return null
+  }
+
+  const value = Number.parseFloat(matched[1])
+  if (!Number.isFinite(value) || value < 0) {
+    return null
+  }
+
+  return value
+}
+
+function parseNodesFromListCellId(cellId: string) {
+  const matched = cellId.match(/^jc_(\d+)-(\d+)(?:-(\d+))?$/)
+  if (!matched) {
+    return null
+  }
+
+  const day = Number.parseInt(matched[1], 10)
+  const startNode = Number.parseInt(matched[2], 10)
+  const endNode = matched[3] ? Number.parseInt(matched[3], 10) : startNode
+  if (!Number.isFinite(day) || !Number.isFinite(startNode) || !Number.isFinite(endNode)) {
+    return null
+  }
+
+  return {
+    day,
+    startNode,
+    endNode,
+  }
+}
+
+function buildScutDetailText(block: HTMLElement) {
+  const paragraphTexts = Array.from(block.querySelectorAll('p'))
+    .map((paragraph) => cleanText(paragraph.textContent ?? ''))
+    .filter((text) => text.length > 0)
+
+  if (paragraphTexts.length > 0) {
+    return paragraphTexts.join(' | ')
+  }
+
+  return cleanText(block.textContent ?? '')
+}
+
+function createScutDetailKey(day: number, startNode: number, endNode: number, courseName: string, weekRange: WeekRange) {
+  return `${day}-${startNode}-${endNode}-${courseName}-${weekRange.startWeek}-${weekRange.endWeek}-${weekRange.weekStep}`
+}
+
+function parseScutHtmlDetailEntries(document: Document) {
+  const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>('#table2 tbody[id^="xq_"] tr'))
+  const entries: ScutHtmlDetailEntry[] = []
+
+  rows.forEach((row) => {
+    const nodeCell = row.querySelector<HTMLTableCellElement>('td[id^="jc_"]')
+    const block = row.querySelector<HTMLElement>('.timetable_con')
+    if (!nodeCell || !block) {
+      return
+    }
+
+    const parsedNodes = parseNodesFromListCellId(nodeCell.id)
+    if (!parsedNodes) {
+      return
+    }
+
+    const titleElement = block.querySelector('.title')
+    const courseName = cleanText(titleElement?.textContent ?? '')
+    if (!courseName) {
+      return
+    }
+
+    const detailText = buildScutDetailText(block)
+    const credit = parseCreditFromText(detailText) ?? 0
+    const weekRanges = parseWeekRanges(detailText)
+
+    weekRanges.forEach((weekRange) => {
+      entries.push({
+        day: parsedNodes.day,
+        startNode: parsedNodes.startNode,
+        endNode: parsedNodes.endNode,
+        courseName,
+        weekRange,
+        credit,
+        detailText,
+      })
+    })
+  })
+
+  return entries
+}
+
 export function parseScutScheduleHtml(html: string, options: ParseScutHtmlOptions): ScheduleData {
   const parser = new DOMParser()
   const document = parser.parseFromString(html, 'text/html')
@@ -154,6 +256,14 @@ export function parseScutScheduleHtml(html: string, options: ParseScutHtmlOption
 
   const courseMap = new Map<string, ScheduleCourse>()
   const lessons: ScheduleLesson[] = []
+  const detailEntries = parseScutHtmlDetailEntries(document)
+  const detailEntryByKey = new Map<string, ScutHtmlDetailEntry>()
+  detailEntries.forEach((entry) => {
+    const key = createScutDetailKey(entry.day, entry.startNode, entry.endNode, entry.courseName, entry.weekRange)
+    if (!detailEntryByKey.has(key)) {
+      detailEntryByKey.set(key, entry)
+    }
+  })
 
   const cells = Array.from(tableRoot.querySelectorAll<HTMLTableCellElement>('td.td_wrap[id]'))
 
@@ -177,6 +287,8 @@ export function parseScutScheduleHtml(html: string, options: ParseScutHtmlOption
       const titleElement = block.querySelector('.title')
       const courseName = cleanText(titleElement?.textContent ?? '未命名课程')
       const blockText = cleanText(block.textContent ?? '')
+      const blockDetailText = buildScutDetailText(block)
+      const fallbackCredit = parseCreditFromText(blockText) ?? 0
 
       if (!courseMap.has(courseName)) {
         const newCourseId = courseMap.size + 1
@@ -195,6 +307,10 @@ export function parseScutScheduleHtml(html: string, options: ParseScutHtmlOption
         continue
       }
 
+      if (course.credit <= 0 && fallbackCredit > 0) {
+        course.credit = fallbackCredit
+      }
+
       const weekRanges = parseWeekRanges(blockText)
       const nodeInfo = parseNodeRange(blockText, fallbackNode, rowSpan)
 
@@ -205,6 +321,13 @@ export function parseScutScheduleHtml(html: string, options: ParseScutHtmlOption
       const teacher = cleanText(teacherElement?.textContent ?? '')
 
       for (const [rangeIndex, weekRange] of weekRanges.entries()) {
+        const detailKey = createScutDetailKey(day, nodeInfo.startNode, nodeInfo.endNode, courseName, weekRange)
+        const matchedDetail = detailEntryByKey.get(detailKey)
+
+        if (course.credit <= 0 && (matchedDetail?.credit ?? 0) > 0) {
+          course.credit = matchedDetail?.credit ?? 0
+        }
+
         lessons.push({
           instanceId: `scut-${day}-${nodeInfo.startNode}-${weekRange.startWeek}-${weekRange.endWeek}-${weekRange.weekStep}-${lessons.length}-${index}-${rangeIndex}`,
           courseId: course.id,
@@ -220,6 +343,7 @@ export function parseScutScheduleHtml(html: string, options: ParseScutHtmlOption
           endTime: '',
           room,
           teacher,
+          detailText: matchedDetail?.detailText ?? blockDetailText,
           type: 0,
           level: 0,
         })

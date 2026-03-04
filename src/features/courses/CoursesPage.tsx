@@ -248,6 +248,14 @@ function formatTimeText(timeText: string) {
   return `${Number.parseInt(match[1], 10)}:${match[2]}`
 }
 
+function formatCourseCredit(credit: number) {
+  if (!Number.isFinite(credit) || credit <= 0) {
+    return '-'
+  }
+
+  return `${credit}`
+}
+
 function getWeekdayDateLabels(startDateText: string, weekNumber: number) {
   const semesterStart = parseLocalDate(startDateText)
   if (!semesterStart) {
@@ -493,6 +501,7 @@ function CoursesPage() {
   const [selectedCourses, setSelectedCourses] = useState<WeekCellCourse[]>([])
   const [selectedDay, setSelectedDay] = useState(1)
   const [selectedNode, setSelectedNode] = useState(1)
+  const [expandedCourseDetailMap, setExpandedCourseDetailMap] = useState<Record<string, boolean>>({})
   const persistedActiveScheduleEntry = useMemo(() => loadActiveScheduleEntry(), [])
   const isIntersectionPreviewMode = location.pathname === INTERSECTION_PREVIEW_PATH
   const intersectionPreviewPayload = isIntersectionPreviewMode ? loadIntersectionPreviewPayload() : null
@@ -785,12 +794,21 @@ function CoursesPage() {
     setSelectedCourses(courses)
     setSelectedDay(day)
     setSelectedNode(node)
+    setExpandedCourseDetailMap({})
     setIsCourseDetailOpen(true)
   }
 
   const handleCloseCourseDetail = () => {
     setIsCourseDetailOpen(false)
     setSelectedCourses([])
+    setExpandedCourseDetailMap({})
+  }
+
+  const handleToggleCourseDetail = (instanceId: string) => {
+    setExpandedCourseDetailMap((previousMap) => ({
+      ...previousMap,
+      [instanceId]: !previousMap[instanceId],
+    }))
   }
 
   const selectedWeekday = WEEKDAY_LABELS[selectedDay - 1] ?? ''
@@ -964,20 +982,39 @@ function CoursesPage() {
         footer={null}
       >
         <div className='course-detail-list'>
-          {selectedCourses.map((course) => (
-            <article key={course.lesson.instanceId} className='course-detail-item'>
-              <h3 className='course-detail-name'>{course.name}</h3>
-              <p className='course-detail-line'>教室：{course.room || '-'}</p>
-              <p className='course-detail-line'>教师：{course.teacher || '-'}</p>
-              <p className='course-detail-line'>周次：第{course.lesson.startWeek}-{course.lesson.endWeek}周</p>
-              <p className='course-detail-line'>
-                节次：
-                {course.lesson.startNode === course.lesson.endNode
-                  ? `第${course.lesson.startNode}节`
-                  : `第${course.lesson.startNode}-${course.lesson.endNode}节`}
-              </p>
-            </article>
-          ))}
+          {selectedCourses.map((course) => {
+            const isExpanded = Boolean(expandedCourseDetailMap[course.lesson.instanceId])
+
+            return (
+              <article key={course.lesson.instanceId} className='course-detail-item'>
+                <h3 className='course-detail-name'>{course.name}</h3>
+                <p className='course-detail-line'>学分：{formatCourseCredit(course.credit)}</p>
+                <p className='course-detail-line'>教室：{course.room || '-'}</p>
+                <p className='course-detail-line'>教师：{course.teacher || '-'}</p>
+                <p className='course-detail-line'>周次：第{course.lesson.startWeek}-{course.lesson.endWeek}周</p>
+                <p className='course-detail-line'>
+                  节次：
+                  {course.lesson.startNode === course.lesson.endNode
+                    ? `第${course.lesson.startNode}节`
+                    : `第${course.lesson.startNode}-${course.lesson.endNode}节`}
+                </p>
+
+                <button
+                  type='button'
+                  className='course-detail-toggle'
+                  onClick={() => handleToggleCourseDetail(course.lesson.instanceId)}
+                >
+                  {isExpanded ? '点击收起详情' : '点击展开详情'}
+                </button>
+
+                {isExpanded && (
+                  <div className='course-detail-extra'>
+                    <p className='course-detail-line'>课程详情：{course.lesson.detailText || '暂无课程详情'}</p>
+                  </div>
+                )}
+              </article>
+            )
+          })}
         </div>
       </Modal>
 
