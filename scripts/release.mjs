@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
-import { dirname, basename, extname, resolve } from 'node:path'
+import { dirname, basename, extname, resolve, relative } from 'node:path'
 import readline from 'node:readline'
 import { Writable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
@@ -12,6 +12,7 @@ const packageJsonPath = resolve(rootDir, 'package.json')
 const versionsJsonPath = resolve(rootDir, 'versions.json')
 const apkOutputDir = resolve(rootDir, 'android/app/build/outputs/apk')
 const releaseArtifactDir = rootDir
+const releaseNotesDir = resolve(rootDir, '.release-notes')
 const manualSubmoduleDir = resolve(rootDir, 'external/survive-in-scut')
 const manualRootAssetsDir = resolve(manualSubmoduleDir, 'docs/.vuepress/public/root-assets')
 
@@ -59,29 +60,140 @@ function compareVersions(left, right) {
   return 0
 }
 
-function parseVersionArg() {
-  if (process.argv[2]) {
-    return process.argv[2].trim()
-  }
-
+function parseNpmOriginalArgs() {
   const npmConfigArgv = process.env.npm_config_argv
   if (!npmConfigArgv) {
-    return ''
+    return []
   }
 
   try {
     const parsed = JSON.parse(npmConfigArgv)
     const original = Array.isArray(parsed.original) ? parsed.original : []
-    for (const item of original) {
-      if (typeof item === 'string' && VERSION_PATTERN.test(item.trim())) {
-        return item.trim()
-      }
-    }
+    return original
+      .filter((item) => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
   } catch {
-    return ''
+    return []
+  }
+}
+
+function parsePlatformList(input) {
+  return input
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => item.length > 0)
+}
+
+function parseReleaseOptions() {
+  const directArgs = process.argv.slice(2).map((item) => item.trim()).filter((item) => item.length > 0)
+  const rawArgs = directArgs.length > 0 ? directArgs : parseNpmOriginalArgs()
+
+  let version = ''
+  let note = ''
+  let android = false
+  let ios = false
+  let hasPlatformFlag = false
+
+  for (let index = 0; index < rawArgs.length; index += 1) {
+    const arg = rawArgs[index]
+
+    if (!version && VERSION_PATTERN.test(arg)) {
+      version = arg
+      continue
+    }
+
+    if (arg === '--android') {
+      hasPlatformFlag = true
+      android = true
+      continue
+    }
+
+    if (arg === '--ios') {
+      hasPlatformFlag = true
+      ios = true
+      continue
+    }
+
+    if (arg === '--platform') {
+      const next = rawArgs[index + 1]
+      if (!next) {
+        throw new Error('Missing value for --platform. Example: --platform android,ios')
+      }
+
+      hasPlatformFlag = true
+      index += 1
+      const platforms = parsePlatformList(next)
+      for (const platform of platforms) {
+        if (platform === 'android') {
+          android = true
+          continue
+        }
+
+        if (platform === 'ios') {
+          ios = true
+          continue
+        }
+
+        throw new Error(`Unsupported platform "${platform}". Use android or ios.`)
+      }
+
+      continue
+    }
+
+    if (arg.startsWith('--platform=')) {
+      hasPlatformFlag = true
+      const value = arg.slice('--platform='.length)
+      const platforms = parsePlatformList(value)
+      for (const platform of platforms) {
+        if (platform === 'android') {
+          android = true
+          continue
+        }
+
+        if (platform === 'ios') {
+          ios = true
+          continue
+        }
+
+        throw new Error(`Unsupported platform "${platform}". Use android or ios.`)
+      }
+
+      continue
+    }
+
+    if (arg === '--note') {
+      const next = rawArgs[index + 1]
+      if (!next) {
+        throw new Error('Missing value for --note. Example: --note "- New UI"')
+      }
+
+      note = next
+      index += 1
+      continue
+    }
+
+    if (arg.startsWith('--note=')) {
+      note = arg.slice('--note='.length)
+    }
   }
 
-  return ''
+  if (!hasPlatformFlag) {
+    android = true
+  }
+
+  if (!android && !ios) {
+    throw new Error('No platform selected. Use --android and/or --ios.')
+  }
+
+  return {
+    version,
+    note,
+    platforms: {
+      android,
+      ios,
+    },
+  }
 }
 
 function readVersionsData() {
@@ -162,6 +274,33 @@ function findLatestApk() {
   )
 }
 
+function findLatestIpa() {
+  const searchRoots = [
+    resolve(rootDir, 'ios/App/output'),
+    resolve(rootDir, 'ios'),
+  ]
+
+  const ipaFiles = []
+  for (const dirPath of searchRoots) {
+    if (!existsSync(dirPath)) {
+      continue
+    }
+
+    const files = walkFiles(dirPath)
+    for (const filePath of files) {
+      if (extname(filePath).toLowerCase() === '.ipa') {
+        ipaFiles.push(filePath)
+      }
+    }
+  }
+
+  if (ipaFiles.length === 0) {
+    throw new Error('No IPA file found under ios/. Export IPA in Xcode and try again.')
+  }
+
+  return [...ipaFiles].sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs)[0]
+}
+
 function extractRepoInfo() {
   const remoteUrl = execSync('git remote get-url origin', {
     cwd: rootDir,
@@ -206,6 +345,20 @@ function askYesNo(prompt) {
       rl.close()
       const normalized = answer.trim().toLowerCase()
       resolveAnswer(normalized === 'y' || normalized === 'yes')
+    })
+  })
+}
+
+function askText(prompt) {
+  return new Promise((resolveAnswer) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    })
+
+    rl.question(prompt, (answer) => {
+      rl.close()
+      resolveAnswer(answer.trim())
     })
   })
 }
@@ -275,11 +428,14 @@ function syncLatestAssetsToManual({ apkPath, versionsPath }) {
   const latestApkPath = resolve(manualRootAssetsDir, 'qmm-latest.apk')
   const manualVersionsPath = resolve(manualRootAssetsDir, 'versions.json')
 
-  cpSync(apkPath, latestApkPath)
+  if (apkPath) {
+    cpSync(apkPath, latestApkPath)
+  }
+
   cpSync(versionsPath, manualVersionsPath)
 
   return {
-    latestApkPath,
+    latestApkPath: apkPath ? latestApkPath : '',
     manualVersionsPath,
   }
 }
@@ -290,11 +446,15 @@ function ensureManualMainBranch() {
   run('git pull --ff-only origin main', manualSubmoduleDir)
 }
 
-function commitAndPushManualAssets({ version }) {
+function commitAndPushManualAssets({ version, hasApk }) {
   const relativeApkPath = 'docs/.vuepress/public/root-assets/qmm-latest.apk'
   const relativeVersionsPath = 'docs/.vuepress/public/root-assets/versions.json'
 
-  run(`git add "${relativeApkPath}" "${relativeVersionsPath}"`, manualSubmoduleDir)
+  if (hasApk) {
+    run(`git add "${relativeApkPath}" "${relativeVersionsPath}"`, manualSubmoduleDir)
+  } else {
+    run(`git add "${relativeVersionsPath}"`, manualSubmoduleDir)
+  }
 
   let hasChanges = true
   try {
@@ -316,21 +476,31 @@ function commitAndPushManualAssets({ version }) {
   run('git push origin main', manualSubmoduleDir)
 }
 
-function updateVersionsJson({ version, tag, owner, repo }) {
+function updateVersionsJson({ version, tag, owner, repo, hasAndroidAsset, hasIosAsset }) {
   const baseDownloadUrl = `https://github.com/${owner}/${repo}/releases/download/${tag}`
   const apkName = `qmm-v${version}.apk`
+  const ipaName = `qmm-v${version}.ipa`
   const versionsName = 'versions.json'
   const publishedAt = new Date().toISOString()
+
+  const assets = {
+    versions: `${baseDownloadUrl}/${versionsName}`,
+  }
+
+  if (hasAndroidAsset) {
+    assets.apk = `${baseDownloadUrl}/${apkName}`
+  }
+
+  if (hasIosAsset) {
+    assets.ipa = `${baseDownloadUrl}/${ipaName}`
+  }
 
   const nextVersionData = {
     version,
     tag,
     publishedAt,
     releaseUrl: `https://github.com/${owner}/${repo}/releases/tag/${tag}`,
-    assets: {
-      apk: `${baseDownloadUrl}/${apkName}`,
-      versions: `${baseDownloadUrl}/${versionsName}`,
-    },
+    assets,
   }
 
   const previous = readVersionsData()
@@ -477,9 +647,33 @@ function createOrUpdateReleaseWithGh({ tag, title, assetFiles }) {
   run(`gh release upload ${tag} ${quotedAssets} --clobber`, rootDir)
 }
 
-function stageCommitAndTag({ version, tag, apkPath }) {
-  const apkName = basename(apkPath)
-  run(`git add package.json versions.json "${apkName}"`, rootDir)
+function writeReleaseNoteFile({ tag, note }) {
+  if (!note) {
+    return ''
+  }
+
+  if (!existsSync(releaseNotesDir)) {
+    mkdirSync(releaseNotesDir, { recursive: true })
+  }
+
+  const noteFilePath = resolve(releaseNotesDir, `${tag}.md`)
+  writeFileSync(noteFilePath, `${note.trim()}\n`)
+  return noteFilePath
+}
+
+function stageCommitAndTag({ version, tag, assetPaths, noteFilePath }) {
+  const filesToAdd = ['package.json', 'versions.json']
+
+  for (const assetPath of assetPaths) {
+    filesToAdd.push(basename(assetPath))
+  }
+
+  if (noteFilePath) {
+    filesToAdd.push(relative(rootDir, noteFilePath).replace(/\\/g, '/'))
+  }
+
+  const quotedFiles = filesToAdd.map((filePath) => `"${filePath}"`).join(' ')
+  run(`git add ${quotedFiles}`, rootDir)
   run(`git commit -m "chore(release): prepare v${version}"`, rootDir)
   run(`git tag ${tag}`, rootDir)
   run('git push', rootDir)
@@ -501,9 +695,12 @@ async function resolveGithubToken() {
 }
 
 async function main() {
-  const nextVersion = parseVersionArg()
+  const releaseOptions = parseReleaseOptions()
+  const nextVersion = releaseOptions.version
   if (!nextVersion) {
-    throw new Error('Missing version code. Usage: npm run release <version_code> (example: npm run release 0.2.3)')
+    throw new Error(
+      'Missing version code. Usage: npm run release <version_code> --android --ios --note "- New UI"',
+    )
   }
 
   if (!VERSION_PATTERN.test(nextVersion)) {
@@ -530,7 +727,17 @@ async function main() {
     throw new Error(`Release must run on main branch. Current branch: ${rootBranch}`)
   }
 
+  const targetPlatforms = []
+  if (releaseOptions.platforms.android) {
+    targetPlatforms.push('android')
+  }
+
+  if (releaseOptions.platforms.ios) {
+    targetPlatforms.push('ios')
+  }
+
   console.log(`Starting release process for version ${nextVersion}`)
+  console.log(`Target platforms: ${targetPlatforms.join(', ')}`)
 
   console.log('Updating submodules to latest remote commits...')
   run('git submodule update --init --recursive', rootDir)
@@ -540,45 +747,100 @@ async function main() {
   writeJson(packageJsonPath, packageJson)
   console.log(`Updated package.json version to ${nextVersion}`)
 
-  console.log('Running full build pipeline...')
-  run('npm run build:android', rootDir)
-
-  console.log('Opening Android Studio project...')
-  run('npx cap open android', rootDir)
-
-  const confirmed = await askYesNo('Have you finished building the APK in Android Studio? [y/N]: ')
-  if (!confirmed) {
-    throw new Error('APK build was not confirmed. Release process stopped.')
-  }
-
-  const builtApkPath = findLatestApk()
-  const renamedApkName = `qmm-v${nextVersion}.apk`
-  const renamedApkPath = resolve(releaseArtifactDir, renamedApkName)
-  ensureNoReleaseAssetConflict(renamedApkPath)
-  cpSync(builtApkPath, renamedApkPath)
-  console.log(`Prepared APK asset: ${renamedApkPath}`)
-
   const { owner, repo } = extractRepoInfo()
   updateVersionsJson({
     version: nextVersion,
     tag,
     owner,
     repo,
+    hasAndroidAsset: releaseOptions.platforms.android,
+    hasIosAsset: releaseOptions.platforms.ios,
   })
   console.log('Updated versions.json')
 
+  console.log('Running shared web build pipeline...')
+  run('npm run build:full', rootDir)
+
+  console.log('Syncing native versions...')
+  run('node scripts/syncNativeVersion.mjs', rootDir)
+
+  const preparedAssets = []
+
+  if (releaseOptions.platforms.android) {
+    console.log('Syncing Android platform...')
+    run('npx cap sync android', rootDir)
+
+    console.log('Opening Android Studio project...')
+    run('npx cap open android', rootDir)
+
+    const confirmed = await askYesNo('Have you finished building the APK in Android Studio? [y/N]: ')
+    if (!confirmed) {
+      throw new Error('APK build was not confirmed. Release process stopped.')
+    }
+
+    const builtApkPath = findLatestApk()
+    const renamedApkName = `qmm-v${nextVersion}.apk`
+    const renamedApkPath = resolve(releaseArtifactDir, renamedApkName)
+    ensureNoReleaseAssetConflict(renamedApkPath)
+    cpSync(builtApkPath, renamedApkPath)
+    preparedAssets.push(renamedApkPath)
+    console.log(`Prepared APK asset: ${renamedApkPath}`)
+  }
+
+  if (releaseOptions.platforms.ios) {
+    console.log('Syncing iOS platform...')
+    run('npx cap sync ios', rootDir)
+
+    console.log('Opening Xcode project...')
+    run('npx cap open ios', rootDir)
+
+    const confirmed = await askYesNo('Have you finished exporting the IPA in Xcode? [y/N]: ')
+    if (!confirmed) {
+      throw new Error('IPA export was not confirmed. Release process stopped.')
+    }
+
+    const manualIpaPath = await askText('Optional: enter IPA absolute path (press Enter to auto-detect): ')
+    const builtIpaPath = manualIpaPath || findLatestIpa()
+    if (!existsSync(builtIpaPath) || extname(builtIpaPath).toLowerCase() !== '.ipa') {
+      throw new Error(`Invalid IPA path: ${builtIpaPath}`)
+    }
+
+    const renamedIpaName = `qmm-v${nextVersion}.ipa`
+    const renamedIpaPath = resolve(releaseArtifactDir, renamedIpaName)
+    cpSync(builtIpaPath, renamedIpaPath)
+    preparedAssets.push(renamedIpaPath)
+    console.log(`Prepared IPA asset: ${renamedIpaPath}`)
+  }
+
+  if (preparedAssets.length === 0) {
+    throw new Error('No release assets prepared. Please select at least one platform.')
+  }
+
+  const noteFilePath = writeReleaseNoteFile({
+    tag,
+    note: releaseOptions.note,
+  })
+  if (noteFilePath) {
+    console.log(`Prepared release note: ${noteFilePath}`)
+  }
+
   console.log('Syncing latest release assets to manual root-assets...')
   ensureManualMainBranch()
+  const androidAssetPath = preparedAssets.find((filePath) => extname(filePath).toLowerCase() === '.apk') || ''
   syncLatestAssetsToManual({
-    apkPath: renamedApkPath,
+    apkPath: androidAssetPath,
     versionsPath: versionsJsonPath,
   })
-  commitAndPushManualAssets({ version: nextVersion })
+  commitAndPushManualAssets({
+    version: nextVersion,
+    hasApk: Boolean(androidAssetPath),
+  })
 
   stageCommitAndTag({
     version: nextVersion,
     tag,
-    apkPath: renamedApkPath,
+    assetPaths: preparedAssets,
+    noteFilePath,
   })
 
   const releaseUrl = `https://github.com/${owner}/${repo}/releases/tag/${tag}`
