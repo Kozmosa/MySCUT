@@ -37,3 +37,10 @@ LLM-Working/test.pdf
 
 # Local session logs
 session-ses_*.md
+
+# Local import/export artifacts
+LLM-Working/*.qms
+LLM-Working/*.json
+LLM-Working/*.html
+LLM-Working/*.htm
+LLM-Working/*.mhtml
