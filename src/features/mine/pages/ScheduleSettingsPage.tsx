@@ -8,7 +8,6 @@ import {
   getAutoSimplifyScheduleHintEnabled,
   setAutoSimplifyScheduleHintEnabled,
 } from '../../../core/schedule/displaySettings'
-import { decodeCompressedQmsText, encodeCompressedQmsText } from '../../../core/schedule/compressedQms'
 import { parseQmsScheduleText } from '../../../core/schedule/importQms'
 import { parseScutScheduleHtml } from '../../../core/schedule/importScutHtml'
 import { parseWakeupScheduleText } from '../../../core/schedule/importWakeup'
@@ -227,6 +226,8 @@ function ScheduleSettingsPage() {
 
     try {
       const compressedQmsText = await navigator.clipboard.readText()
+      const compressedQmsModule = await import('../../../core/schedule/compressedQms')
+      const decodeCompressedQmsText = compressedQmsModule.decodeCompressedQmsText
       const qmsText = await decodeCompressedQmsText(compressedQmsText)
       await handleImportQmsText(qmsText)
     } catch (error) {
@@ -570,6 +571,8 @@ function ScheduleSettingsPage() {
         }
 
         const qmsText = buildQmsExportText(targetSchedule)
+        const compressedQmsModule = await import('../../../core/schedule/compressedQms')
+        const encodeCompressedQmsText = compressedQmsModule.encodeCompressedQmsText
         const compressedQmsText = await encodeCompressedQmsText(qmsText)
         await navigator.clipboard.writeText(compressedQmsText)
       }

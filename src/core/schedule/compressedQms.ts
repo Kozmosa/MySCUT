@@ -1,15 +1,17 @@
-import { Zstd } from '@hpcc-js/wasm-zstd'
-
-type ZstdInstance = Awaited<ReturnType<typeof Zstd.load>>
+type ZstdModule = typeof import('@hpcc-js/wasm-zstd')
+type ZstdInstance = Awaited<ReturnType<ZstdModule['Zstd']['load']>>
 
 const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 
 let zstdInstancePromise: Promise<ZstdInstance> | null = null
 
-function getZstdInstance() {
+async function getZstdInstance() {
   if (!zstdInstancePromise) {
-    zstdInstancePromise = Zstd.load()
+    zstdInstancePromise = (async () => {
+      const zstdModule = await import('@hpcc-js/wasm-zstd')
+      return zstdModule.Zstd.load()
+    })()
   }
 
   return zstdInstancePromise

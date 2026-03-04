@@ -1,11 +1,35 @@
-import { getDocument, GlobalWorkerOptions, version } from 'pdfjs-dist'
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url'
+type PdfjsRuntime = {
+  getDocument: (typeof import('pdfjs-dist'))['getDocument']
+  version: string
+}
 
-GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+let pdfjsRuntimePromise: Promise<PdfjsRuntime> | null = null
 
-const PDFJS_ASSET_BASE_URL = __PDF_LOCAL_CMAP_ENABLED__
-  ? `${import.meta.env.BASE_URL}pdfjs/`
-  : `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/`
+async function getPdfjsRuntime() {
+  if (!pdfjsRuntimePromise) {
+    pdfjsRuntimePromise = (async () => {
+      const [pdfjs, workerModule] = await Promise.all([
+        import('pdfjs-dist'),
+        import('pdfjs-dist/build/pdf.worker.mjs?url'),
+      ])
+
+      pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default
+
+      return {
+        getDocument: pdfjs.getDocument,
+        version: pdfjs.version,
+      }
+    })()
+  }
+
+  return pdfjsRuntimePromise
+}
+
+function resolvePdfAssetBaseUrl(pdfjsVersion: string) {
+  return __PDF_LOCAL_CMAP_ENABLED__
+    ? `${import.meta.env.BASE_URL}pdfjs/`
+    : `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsVersion}/`
+}
 
 type PdfJsTextItem = {
   str: string
@@ -67,14 +91,16 @@ function isPdfJsTextItem(item: unknown): item is PdfJsTextItem {
 }
 
 export async function extractScutSchedulePdf(file: File): Promise<ExtractedSchedulePdf> {
+  const pdfjsRuntime = await getPdfjsRuntime()
+  const pdfAssetBaseUrl = resolvePdfAssetBaseUrl(pdfjsRuntime.version)
   const buffer = await file.arrayBuffer()
   const bytes = new Uint8Array(buffer)
   const sourceByteLength = bytes.byteLength
-  const loadingTask = getDocument({
+  const loadingTask = pdfjsRuntime.getDocument({
     data: bytes,
-    cMapUrl: `${PDFJS_ASSET_BASE_URL}cmaps/`,
+    cMapUrl: `${pdfAssetBaseUrl}cmaps/`,
     cMapPacked: true,
-    standardFontDataUrl: `${PDFJS_ASSET_BASE_URL}standard_fonts/`,
+    standardFontDataUrl: `${pdfAssetBaseUrl}standard_fonts/`,
   })
 
   try {
@@ -139,7 +165,7 @@ export async function extractScutSchedulePdf(file: File): Promise<ExtractedSched
         byteLength: sourceByteLength,
         parsedAt: new Date().toISOString(),
         pageCount: document.numPages,
-        pdfjsVersion: version,
+        pdfjsVersion: pdfjsRuntime.version,
       },
       pages,
     }
