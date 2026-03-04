@@ -192,7 +192,7 @@ function ScutJwImportPage() {
 
       <header className='schedule-settings-header'>
         <div>
-          <p className='schedule-settings-title'>从教务系统导入</p>
+          <p className='schedule-settings-title'>从华工教务系统导入</p>
           <p className='schedule-settings-subtitle'>SCUT In-App Import</p>
         </div>
 

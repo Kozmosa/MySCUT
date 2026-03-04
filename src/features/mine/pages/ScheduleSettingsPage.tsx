@@ -782,7 +782,7 @@ function ScheduleSettingsPage() {
       <input
         ref={htmlFileInputRef}
         type='file'
-        accept='.html,.htm,.txt'
+        accept='.html,.htm,.mht,.mhtml,.txt'
         className='schedule-settings-file-input'
         onChange={handleImportHtmlFile}
       />
@@ -827,7 +827,7 @@ function ScheduleSettingsPage() {
           </button>
           {isAndroidNative && (
             <button type='button' className='schedule-import-item' onClick={handleImportScutJwEntry}>
-              从教务系统导入
+              从华工教务系统导入
             </button>
           )}
           <button type='button' className='schedule-import-item' onClick={handleImportQmsEntry}>
