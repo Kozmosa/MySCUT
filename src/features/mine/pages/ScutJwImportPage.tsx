@@ -6,8 +6,8 @@ import { Modal, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { CircleIconButton } from '../../../components/buttons/CircleIconButton'
 import { parseScutScheduleHtml } from '../../../core/schedule/importScutHtml'
-import { getScheduleThemePresetById } from '../../../core/schedule/themePresets'
-import { loadActiveScheduleEntry, saveScheduleDataWithOptions } from '../../../core/schedule/storage'
+import { saveScheduleDataWithOptions } from '../../../core/schedule/storage'
+import { getScheduleThemePreset } from '../../../core/schedule/themeStorage'
 import { getSemesterStartDate, saveSemesterStartDate } from '../../../core/scheduleSettings'
 
 const SCUT_JW_URL = 'http://xsjw2018.jw.scut.edu.cn/'
@@ -160,8 +160,8 @@ function ScutJwImportPage() {
         fallbackSemesterStartDate,
       })
 
-      const activeSchedule = loadActiveScheduleEntry()
-      const themeId = getScheduleThemePresetById(activeSchedule?.themeId ?? '').id
+      const themePreset = getScheduleThemePreset()
+      const themeId = themePreset.id
       const nextSemesterStartDate = scheduleData.table.startDate || fallbackSemesterStartDate
       const result = saveScheduleDataWithOptions(scheduleData, {
         themeId,
@@ -176,7 +176,7 @@ function ScutJwImportPage() {
       }
 
       saveSemesterStartDate(nextSemesterStartDate)
-      messageApi.success('华工教务课表导入成功')
+      messageApi.success(`华工教务课表导入成功，已按当前主题“${themePreset.name}”上色`)
       navigate('/mine/schedule-settings', { replace: true })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '华工教务课表导入失败'
