@@ -452,14 +452,14 @@ function ScheduleIntersectionPage() {
       <input
         ref={qmsFileInputRef}
         type='file'
-        accept='.qms,.json'
+        accept='.qms,.json,.txt'
         className='schedule-settings-file-input'
         onChange={handleImportQms}
       />
       <input
         ref={htmlFileInputRef}
         type='file'
-        accept='.html,.htm,.txt'
+        accept='.html,.htm,.mht,.mhtml,.txt'
         className='schedule-settings-file-input'
         onChange={handleImportHtmlFile}
       />
