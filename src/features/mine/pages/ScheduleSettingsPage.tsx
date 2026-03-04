@@ -1,5 +1,6 @@
 import { type ChangeEvent, useEffect, useRef, useState } from 'react'
 import { CloseOutlined } from '@ant-design/icons'
+import { Capacitor } from '@capacitor/core'
 import { DatePicker, Input, Modal, Select, Switch, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { CircleIconButton } from '../../../components/buttons/CircleIconButton'
@@ -121,6 +122,7 @@ function ScheduleSettingsPage() {
   const closeTimerRef = useRef<number | null>(null)
   const enterTimerRef = useRef<number | null>(null)
   const isClosingRef = useRef(false)
+  const isAndroidNative = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
 
   const navigateBack = () => {
     if (window.history.length > 1) {
@@ -236,6 +238,11 @@ function ScheduleSettingsPage() {
   const handleImportQmsEntry = () => {
     setIsImportModalOpen(false)
     qmsFileInputRef.current?.click()
+  }
+
+  const handleImportScutJwEntry = () => {
+    setIsImportModalOpen(false)
+    navigate('/mine/import-scut-jw')
   }
 
   const handleImportCompressedQmsFromClipboardEntry = async () => {
@@ -737,7 +744,7 @@ function ScheduleSettingsPage() {
       <input
         ref={wakeupFileInputRef}
         type='file'
-        accept='.wakeup_schedule,.json,.txt'
+        accept='.wakeup_schedule,.json,.txt,.bin'
         className='schedule-settings-file-input'
         onChange={handleImportSchedule}
       />
@@ -796,6 +803,11 @@ function ScheduleSettingsPage() {
           <button type='button' className='schedule-import-item' onClick={handleImportPdfEntry}>
             从华工教务PDF导入
           </button>
+          {isAndroidNative && (
+            <button type='button' className='schedule-import-item' onClick={handleImportScutJwEntry}>
+              从教务系统导入
+            </button>
+          )}
           <button type='button' className='schedule-import-item' onClick={handleImportQmsEntry}>
             从启梦文件QMS导入
           </button>

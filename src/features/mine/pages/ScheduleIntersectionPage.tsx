@@ -445,7 +445,7 @@ function ScheduleIntersectionPage() {
       <input
         ref={wakeupFileInputRef}
         type='file'
-        accept='.wakeup_schedule,.json,.txt'
+        accept='.wakeup_schedule,.json,.txt,.bin'
         className='schedule-settings-file-input'
         onChange={handleImportWakeup}
       />
