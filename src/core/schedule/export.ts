@@ -17,6 +17,13 @@ type QmsExportPayload = {
   schedule: SavedSchedule
 }
 
+export type ExportSanitizeOptions = {
+  removeBoundTimeSlots: boolean
+  removeCourseName: boolean
+  removeTeacherName: boolean
+  removeRoom: boolean
+}
+
 function formatWakeupStartDate(dateText: string) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateText)) {
     return dateText
@@ -133,6 +140,64 @@ function buildWakeupRawFromSchedule(scheduleData: ScheduleData) {
     tableConfig,
     courses,
     lessons,
+  }
+}
+
+export function sanitizeScheduleForExport(savedSchedule: SavedSchedule, options: ExportSanitizeOptions): SavedSchedule {
+  const scheduleData: ScheduleData = {
+    ...savedSchedule.scheduleData,
+    table: {
+      ...savedSchedule.scheduleData.table,
+      timeTable: options.removeBoundTimeSlots ? 2 : savedSchedule.scheduleData.table.timeTable,
+    },
+    timeSlots: options.removeBoundTimeSlots ? [] : savedSchedule.scheduleData.timeSlots,
+    courses: options.removeCourseName
+      ? savedSchedule.scheduleData.courses.map((course) => ({
+          ...course,
+          name: '',
+        }))
+      : savedSchedule.scheduleData.courses,
+    lessons:
+      options.removeTeacherName || options.removeRoom
+        ? savedSchedule.scheduleData.lessons.map((lesson) => ({
+            ...lesson,
+            teacher: options.removeTeacherName ? '' : lesson.teacher,
+            room: options.removeRoom ? '' : lesson.room,
+          }))
+        : savedSchedule.scheduleData.lessons,
+    raw: savedSchedule.scheduleData.raw,
+  }
+
+  if (savedSchedule.scheduleData.raw.kind === 'wakeup') {
+    const wakeupRaw = savedSchedule.scheduleData.raw
+    scheduleData.raw = {
+      ...wakeupRaw,
+      timeSlots: options.removeBoundTimeSlots ? [] : wakeupRaw.timeSlots,
+      tableConfig: {
+        ...wakeupRaw.tableConfig,
+        timeTable: options.removeBoundTimeSlots ? 2 : wakeupRaw.tableConfig.timeTable,
+      },
+      courses: options.removeCourseName
+        ? wakeupRaw.courses.map((course) => ({
+            ...course,
+            courseName: '',
+          }))
+        : wakeupRaw.courses,
+      lessons:
+        options.removeTeacherName || options.removeRoom
+          ? wakeupRaw.lessons.map((lesson) => ({
+              ...lesson,
+              teacher: options.removeTeacherName ? '' : lesson.teacher,
+              room: options.removeRoom ? '' : lesson.room,
+            }))
+          : wakeupRaw.lessons,
+    }
+  }
+
+  return {
+    ...savedSchedule,
+    timeSlotPresetId: options.removeBoundTimeSlots ? 'builtIn' : savedSchedule.timeSlotPresetId,
+    scheduleData,
   }
 }
 

@@ -184,7 +184,32 @@ type ScheduleLibrary = {
 - `timeSlotPresetId = 'universityTown' | 'wushan' | 'international'`：使用内置校区预设时间
 - 该字段按课表条目保存，不是全局设置
 
-## 7. 渲染辅助结构
+## 7. QMS 导出结构（交换层）
+
+QMS 为导出/导入交换格式，顶层结构：
+
+```ts
+type QmsExportV1 = {
+  schema: 'qms'
+  version: 1
+  exportedAt: number
+  schedule: SavedSchedule
+}
+```
+
+说明：
+
+- QMS 不改变内部 `SavedSchedule` / `ScheduleData` 定义，仅作为交换封装。
+- 详细字段说明与示例见：`LLM-Working/QMS_Schema.md`。
+
+### 7.1 压缩QMS（Clipboard 交换编码）
+
+- 压缩QMS不是新的 schema 版本，而是对 QMS 文本的编码层。
+- 编码：`base64(zstd(qmsJsonTextUtf8))`
+- 解码：`qmsJsonTextUtf8 = zstd^-1(base64^-1(compressedText))`
+- 仅影响剪贴板传输方式，不改变 QMS / ScheduleData 数据结构。
+
+## 8. 渲染辅助结构
 
 课表渲染使用 `WeekCellCourse[]`：
 
@@ -207,7 +232,7 @@ type WeekCellCourse = {
 - `currentWeek <= endWeek`
 - `(currentWeek - startWeek) % weekStep === 0`
 
-## 8. 课表配色方案结构
+## 9. 课表配色方案结构
 
 课表配色方案与课表数据本体解耦，独立存储于 `themePresets` 与 `themeStorage` 模块。
 

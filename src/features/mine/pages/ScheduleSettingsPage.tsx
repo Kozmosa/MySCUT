@@ -20,7 +20,13 @@ import {
   setActiveScheduleTimeSlotPreset,
   switchActiveSchedule,
 } from '../../../core/schedule/storage'
-import { buildQmsExportText, buildWakeupExportText, downloadTextFile } from '../../../core/schedule/export'
+import {
+  buildQmsExportText,
+  buildWakeupExportText,
+  downloadTextFile,
+  sanitizeScheduleForExport,
+  type ExportSanitizeOptions,
+} from '../../../core/schedule/export'
 import { getScheduleThemePresetById, SCHEDULE_THEME_PRESETS, type ScheduleThemeId } from '../../../core/schedule/themePresets'
 import { resolveNearestPresetThemeIdForWakeup } from '../../../core/schedule/themeMatcher'
 import { getTimeSlotPresetName, TIME_SLOT_PRESET_OPTIONS } from '../../../core/schedule/timeSlotPresets'
@@ -61,6 +67,20 @@ function sanitizeFileName(value: string) {
   return value.replace(/[\\/:*?"<>|]/g, '_').trim() || 'schedule'
 }
 
+const DEFAULT_EXPORT_SANITIZE_OPTIONS: ExportSanitizeOptions = {
+  removeBoundTimeSlots: false,
+  removeCourseName: false,
+  removeTeacherName: false,
+  removeRoom: false,
+}
+
+const ENABLED_EXPORT_SANITIZE_OPTIONS: ExportSanitizeOptions = {
+  removeBoundTimeSlots: true,
+  removeCourseName: true,
+  removeTeacherName: true,
+  removeRoom: true,
+}
+
 function ScheduleSettingsPage() {
   const navigate = useNavigate()
   const [messageApi, contextHolder] = message.useMessage()
@@ -82,6 +102,8 @@ function ScheduleSettingsPage() {
   const [isExportFormatModalOpen, setIsExportFormatModalOpen] = useState(false)
   const [exportTargetScheduleId, setExportTargetScheduleId] = useState('')
   const [exportFormat, setExportFormat] = useState<ScheduleExportFormat>('wakeup')
+  const [isExportSanitizeEnabled, setIsExportSanitizeEnabled] = useState(false)
+  const [exportSanitizeOptions, setExportSanitizeOptions] = useState<ExportSanitizeOptions>(DEFAULT_EXPORT_SANITIZE_OPTIONS)
   const [savedSchedules, setSavedSchedules] = useState<SavedScheduleItem[]>(() => listSavedSchedules())
   const [isAutoSimplifyHintEnabled, setIsAutoSimplifyHintEnabled] = useState(() => getAutoSimplifyScheduleHintEnabled())
   const [semesterStartDate, setSemesterStartDate] = useState(() => getSemesterStartDate())
@@ -282,7 +304,23 @@ function ScheduleSettingsPage() {
     setSavedSchedules(schedules)
     setExportTargetScheduleId('')
     setExportFormat('wakeup')
+    setIsExportSanitizeEnabled(false)
+    setExportSanitizeOptions(DEFAULT_EXPORT_SANITIZE_OPTIONS)
     setIsScheduleExportModalOpen(true)
+  }
+
+  const handleExportSanitizeSwitchChange = (checked: boolean) => {
+    setIsExportSanitizeEnabled(checked)
+    if (checked) {
+      setExportSanitizeOptions(ENABLED_EXPORT_SANITIZE_OPTIONS)
+    }
+  }
+
+  const handleExportSanitizeOptionSwitchChange = (key: keyof ExportSanitizeOptions, checked: boolean) => {
+    setExportSanitizeOptions((previousOptions) => ({
+      ...previousOptions,
+      [key]: checked,
+    }))
   }
 
   const handleAutoSimplifyHintSwitchChange = (checked: boolean) => {
@@ -557,12 +595,15 @@ function ScheduleSettingsPage() {
 
     try {
       const baseFileName = `${sanitizeFileName(targetSchedule.name)}_${formatExportTimestamp(new Date())}`
+      const exportSchedule = isExportSanitizeEnabled
+        ? sanitizeScheduleForExport(targetSchedule, exportSanitizeOptions)
+        : targetSchedule
 
       if (exportFormat === 'wakeup') {
-        const wakeupText = buildWakeupExportText(targetSchedule)
+        const wakeupText = buildWakeupExportText(exportSchedule)
         downloadTextFile(`${baseFileName}.wakeup_schedule`, wakeupText)
       } else if (exportFormat === 'qms') {
-        const qmsText = buildQmsExportText(targetSchedule)
+        const qmsText = buildQmsExportText(exportSchedule)
         downloadTextFile(`${baseFileName}.qms`, qmsText, 'application/json;charset=utf-8')
       } else {
         if (!navigator.clipboard?.writeText) {
@@ -570,7 +611,7 @@ function ScheduleSettingsPage() {
           return
         }
 
-        const qmsText = buildQmsExportText(targetSchedule)
+        const qmsText = buildQmsExportText(exportSchedule)
         const compressedQmsModule = await import('../../../core/schedule/compressedQms')
         const encodeCompressedQmsText = compressedQmsModule.encodeCompressedQmsText
         const compressedQmsText = await encodeCompressedQmsText(qmsText)
@@ -901,6 +942,49 @@ function ScheduleSettingsPage() {
             { value: 'qmsCompressedClipboard', label: '压缩QMS（复制到剪贴板）' },
           ]}
         />
+
+        <div className='schedule-export-sanitize-card'>
+          <div className='schedule-export-sanitize-row'>
+            <div className='mine-setting-copy'>
+              <p className='mine-detail-card-title'>抹除详细信息</p>
+              <p className='mine-detail-card-description'>开启后可按需抹除导出课表中的敏感字段</p>
+            </div>
+            <Switch checked={isExportSanitizeEnabled} onChange={handleExportSanitizeSwitchChange} />
+          </div>
+
+          {isExportSanitizeEnabled && (
+            <div className='schedule-export-sanitize-options'>
+              <div className='schedule-export-sanitize-option'>
+                <span>抹去绑定的作息时间</span>
+                <Switch
+                  checked={exportSanitizeOptions.removeBoundTimeSlots}
+                  onChange={(checked) => handleExportSanitizeOptionSwitchChange('removeBoundTimeSlots', checked)}
+                />
+              </div>
+              <div className='schedule-export-sanitize-option'>
+                <span>抹去课程名称</span>
+                <Switch
+                  checked={exportSanitizeOptions.removeCourseName}
+                  onChange={(checked) => handleExportSanitizeOptionSwitchChange('removeCourseName', checked)}
+                />
+              </div>
+              <div className='schedule-export-sanitize-option'>
+                <span>抹去教师名称</span>
+                <Switch
+                  checked={exportSanitizeOptions.removeTeacherName}
+                  onChange={(checked) => handleExportSanitizeOptionSwitchChange('removeTeacherName', checked)}
+                />
+              </div>
+              <div className='schedule-export-sanitize-option'>
+                <span>抹去教室位置</span>
+                <Switch
+                  checked={exportSanitizeOptions.removeRoom}
+                  onChange={(checked) => handleExportSanitizeOptionSwitchChange('removeRoom', checked)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
     </section>
   )

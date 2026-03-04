@@ -1087,6 +1087,38 @@ body {
   font-size: 13px;
 }
 
+.schedule-export-sanitize-card {
+  margin-top: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-surface);
+}
+
+.schedule-export-sanitize-row {
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.schedule-export-sanitize-options {
+  border-top: 1px solid var(--border-soft);
+  padding: 4px 12px 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule-export-sanitize-option {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
 .schedule-pdf-error {
   margin: 8px 4px 0;
   font-size: 13px;
