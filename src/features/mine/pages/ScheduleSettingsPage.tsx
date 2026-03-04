@@ -8,6 +8,7 @@ import {
   getAutoSimplifyScheduleHintEnabled,
   setAutoSimplifyScheduleHintEnabled,
 } from '../../../core/schedule/displaySettings'
+import { decodeCompressedQmsText, encodeCompressedQmsText } from '../../../core/schedule/compressedQms'
 import { parseQmsScheduleText } from '../../../core/schedule/importQms'
 import { parseScutScheduleHtml } from '../../../core/schedule/importScutHtml'
 import { parseWakeupScheduleText } from '../../../core/schedule/importWakeup'
@@ -32,7 +33,7 @@ import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../../co
 const { TextArea } = Input
 
 type HtmlImportMethod = 'file' | 'clipboard' | 'input'
-type ScheduleExportFormat = 'wakeup' | 'qms'
+type ScheduleExportFormat = 'wakeup' | 'qms' | 'qmsCompressedClipboard'
 
 type SavedScheduleItem = ReturnType<typeof listSavedSchedules>[number]
 
@@ -216,6 +217,24 @@ function ScheduleSettingsPage() {
     qmsFileInputRef.current?.click()
   }
 
+  const handleImportCompressedQmsFromClipboardEntry = async () => {
+    setIsImportModalOpen(false)
+
+    if (!navigator.clipboard?.readText) {
+      messageApi.error('当前环境不支持读取剪贴板')
+      return
+    }
+
+    try {
+      const compressedQmsText = await navigator.clipboard.readText()
+      const qmsText = await decodeCompressedQmsText(compressedQmsText)
+      await handleImportQmsText(qmsText)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '压缩QMS导入失败'
+      messageApi.error(errorMessage)
+    }
+  }
+
   const handleOpenHtmlImportMethod = () => {
     setHtmlImportMethod('file')
     setIsHtmlImportMethodModalOpen(true)
@@ -356,14 +375,8 @@ function ScheduleSettingsPage() {
     event.target.value = ''
   }
 
-  const handleImportQms = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) {
-      return
-    }
-
+  const handleImportQmsText = async (content: string) => {
     try {
-      const content = await file.text()
       const parsedQms = parseQmsScheduleText(content)
       const nextThemeId = getScheduleThemePresetById(parsedQms.themeId).id
       const nextSemesterStartDate = parsedQms.semesterStartDate || semesterStartDate
@@ -378,7 +391,6 @@ function ScheduleSettingsPage() {
 
       if (!result.ok) {
         messageApi.error('QMS 课表保存失败，请检查浏览器存储空间')
-        event.target.value = ''
         return
       }
 
@@ -392,8 +404,20 @@ function ScheduleSettingsPage() {
       const errorMessage = error instanceof Error ? error.message : 'QMS 课表导入失败'
       messageApi.error(errorMessage)
     }
+  }
 
-    event.target.value = ''
+  const handleImportQms = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    try {
+      const content = await file.text()
+      await handleImportQmsText(content)
+    } finally {
+      event.target.value = ''
+    }
   }
 
   const handleImportHtmlFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -516,7 +540,7 @@ function ScheduleSettingsPage() {
     setIsExportFormatModalOpen(true)
   }
 
-  const handleConfirmExportFormat = () => {
+  const handleConfirmExportFormat = async () => {
     if (!exportTargetScheduleId) {
       messageApi.error('未选择导出课表，请重新选择')
       setIsExportFormatModalOpen(false)
@@ -536,9 +560,18 @@ function ScheduleSettingsPage() {
       if (exportFormat === 'wakeup') {
         const wakeupText = buildWakeupExportText(targetSchedule)
         downloadTextFile(`${baseFileName}.wakeup_schedule`, wakeupText)
-      } else {
+      } else if (exportFormat === 'qms') {
         const qmsText = buildQmsExportText(targetSchedule)
         downloadTextFile(`${baseFileName}.qms`, qmsText, 'application/json;charset=utf-8')
+      } else {
+        if (!navigator.clipboard?.writeText) {
+          messageApi.error('当前环境不支持写入剪贴板')
+          return
+        }
+
+        const qmsText = buildQmsExportText(targetSchedule)
+        const compressedQmsText = await encodeCompressedQmsText(qmsText)
+        await navigator.clipboard.writeText(compressedQmsText)
       }
 
       messageApi.success('课表导出成功')
@@ -722,6 +755,9 @@ function ScheduleSettingsPage() {
           <button type='button' className='schedule-import-item' onClick={handleImportQmsEntry}>
             从启梦文件QMS导入
           </button>
+          <button type='button' className='schedule-import-item' onClick={handleImportCompressedQmsFromClipboardEntry}>
+            从剪贴板压缩QMS导入
+          </button>
         </div>
       </Modal>
 
@@ -859,6 +895,7 @@ function ScheduleSettingsPage() {
           options={[
             { value: 'wakeup', label: 'WakeUp 兼容格式（.wakeup_schedule）' },
             { value: 'qms', label: '启梦格式 QMS（.qms）' },
+            { value: 'qmsCompressedClipboard', label: '压缩QMS（复制到剪贴板）' },
           ]}
         />
       </Modal>

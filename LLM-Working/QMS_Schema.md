@@ -135,3 +135,10 @@ type SavedSchedule = {
 - 新版本应递增 `version`，并保留 v1 解析器。
 - 若新增字段，优先采用“可选字段 + 默认值”策略，避免破坏旧导入逻辑。
 - 若未来引入加密/签名，可在顶层追加 `integrity` 或 `signature` 字段，不影响 v1 基础结构。
+
+## 9. 压缩QMS（Clipboard 交换）
+
+- 压缩QMS并非新的 schema 版本，而是对“普通QMS文本”的传输编码。
+- 编码流程：`base64(zstd(qmsJsonTextUtf8))`
+- 解码流程：`qmsJsonTextUtf8 = zstd^-1(base64^-1(compressedText))`
+- 当前用于课表设置页的剪贴板导入/导出模式，不改变 `.qms` 文件结构定义。
