@@ -7,7 +7,12 @@
 ## 当前发布链路
 
 - 本地执行 `npm run release <version> [平台参数] [--note "..."]`。
-- `scripts/release.mjs` 完成版本更新、构建、平台产物准备、提交与打 Tag。
+- `scripts/release.mjs` 作为薄入口，实际由 `scripts/release/main.mjs` 编排：
+  - `options.mjs`：发布参数解析
+  - `versioning.mjs`：版本合法性校验与 `versions.json` 更新
+  - `assets.mjs`：Android/iOS 产物发现与重命名
+  - `manualAssets.mjs`：手册子模块 root-assets 同步与提交
+  - `gitFlow.mjs`：主仓提交、打 tag、推送
 - 推送 Tag（`v*`）后，GitHub Actions 工作流 `.github/workflows/release-on-tag.yml` 负责创建/更新 GitHub Release 并上传产物。
 
 ## 发布命令

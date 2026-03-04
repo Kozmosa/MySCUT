@@ -1,5 +1,5 @@
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { extname, resolve } from 'node:path'
 import {
   docsProjectDir,
   ensureManualSubmodule,
@@ -13,6 +13,11 @@ import {
 const docsPlatformDistDir = resolve(docsProjectDir, 'vue-platform-dist')
 const appDocsDistDir = resolve(rootDir, 'dist/docs')
 const docsNodeModulesDir = resolve(docsProjectDir, 'node_modules')
+const docsIgnoredExtensions = new Set(['.apk', '.ipa', '.map'])
+
+function shouldCopyDocsFile(filePath) {
+  return !docsIgnoredExtensions.has(extname(filePath).toLowerCase())
+}
 
 function copyDocsDist() {
   if (!existsSync(docsPlatformDistDir)) {
@@ -24,7 +29,10 @@ function copyDocsDist() {
 
   const entries = readdirSync(docsPlatformDistDir)
   for (const entry of entries) {
-    cpSync(resolve(docsPlatformDistDir, entry), resolve(appDocsDistDir, entry), { recursive: true })
+    cpSync(resolve(docsPlatformDistDir, entry), resolve(appDocsDistDir, entry), {
+      recursive: true,
+      filter: (srcPath) => shouldCopyDocsFile(srcPath),
+    })
   }
 }
 
