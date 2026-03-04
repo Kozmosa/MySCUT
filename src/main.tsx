@@ -8,7 +8,7 @@ import App from './App'
 import { GlobalThemeProvider } from './platform/web/theme/GlobalThemeProvider'
 
 message.config({
-  top: 'calc(env(safe-area-inset-top) + 24px)',
+  top: 'calc(env(safe-area-inset-top) + 54px)',
 })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
