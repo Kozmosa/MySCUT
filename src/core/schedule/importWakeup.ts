@@ -37,25 +37,135 @@ function assertValidWakeupShape(
   }
 }
 
-function resolveWakeupLessonEndNode(lesson: WakeupLesson, timeSlots: WakeupTimeSlot[]) {
-  const candidates = [...timeSlots].sort((a, b) => a.node - b.node)
+function normalizeWakeupTimeText(timeText: string) {
+  return timeText.trim()
+}
 
-  const startNode = lesson.startNode
-  const matchedByEndTime = candidates.find((slot) => slot.endTime === lesson.endTime && slot.node >= startNode)
-  if (matchedByEndTime) {
-    return matchedByEndTime.node
+function parseWakeupTimeToMinutes(timeText: string) {
+  const matched = normalizeWakeupTimeText(timeText).match(/^(\d{1,2}):(\d{2})$/)
+  if (!matched) {
+    return null
   }
 
-  const startSlotIndex = candidates.findIndex((slot) => slot.node === startNode)
-  if (startSlotIndex >= 0) {
-    for (let index = startSlotIndex; index < candidates.length; index += 1) {
-      if (candidates[index].endTime === lesson.endTime) {
-        return candidates[index].node
-      }
+  const hour = Number.parseInt(matched[1], 10)
+  const minute = Number.parseInt(matched[2], 10)
+
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null
+  }
+
+  return hour * 60 + minute
+}
+
+function isWakeupTimeTextPresent(value: string) {
+  return normalizeWakeupTimeText(value).length > 0
+}
+
+function buildWakeupTimeSlotNodeMap(timeSlots: WakeupTimeSlot[]) {
+  const slotMap = new Map<number, WakeupTimeSlot>()
+  timeSlots.forEach((slot) => {
+    slotMap.set(slot.node, slot)
+  })
+  return slotMap
+}
+
+function buildWakeupStartNodeLookup(timeSlots: WakeupTimeSlot[]) {
+  const map = new Map<string, number>()
+  timeSlots.forEach((slot) => {
+    const key = normalizeWakeupTimeText(slot.startTime)
+    if (key && !map.has(key)) {
+      map.set(key, slot.node)
+    }
+  })
+  return map
+}
+
+function buildWakeupEndNodeLookup(timeSlots: WakeupTimeSlot[]) {
+  const map = new Map<string, number>()
+  timeSlots.forEach((slot) => {
+    const key = normalizeWakeupTimeText(slot.endTime)
+    if (key && !map.has(key)) {
+      map.set(key, slot.node)
+    }
+  })
+  return map
+}
+
+function clampWakeupNode(node: number, maxNode: number) {
+  return Math.max(1, Math.min(maxNode, node))
+}
+
+function getWakeupSpanFromStep(step: number) {
+  if (!Number.isFinite(step)) {
+    return 1
+  }
+
+  return Math.max(1, Math.floor(step))
+}
+
+function resolveWakeupLessonRange(lesson: WakeupLesson, timeSlots: WakeupTimeSlot[], tableMaxNode: number) {
+  const maxNodeFromSlots = timeSlots.reduce((max, slot) => Math.max(max, slot.node), 1)
+  const maxNode = Math.max(1, tableMaxNode, maxNodeFromSlots)
+  const span = getWakeupSpanFromStep(lesson.step)
+  const timeSlotNodeMap = buildWakeupTimeSlotNodeMap(timeSlots)
+  const startNodeLookup = buildWakeupStartNodeLookup(timeSlots)
+  const endNodeLookup = buildWakeupEndNodeLookup(timeSlots)
+
+  const hasStartTime = isWakeupTimeTextPresent(lesson.startTime)
+  const hasEndTime = isWakeupTimeTextPresent(lesson.endTime)
+
+  let startNode = Number.isInteger(lesson.startNode) && lesson.startNode > 0 ? lesson.startNode : null
+  let endNode: number | null = null
+  let startTime = hasStartTime ? normalizeWakeupTimeText(lesson.startTime) : ''
+  let endTime = hasEndTime ? normalizeWakeupTimeText(lesson.endTime) : ''
+
+  if (startNode === null && hasStartTime) {
+    const matchedStartNode = startNodeLookup.get(startTime)
+    if (typeof matchedStartNode === 'number') {
+      startNode = matchedStartNode
     }
   }
 
-  return startNode
+  if (startNode === null && hasEndTime) {
+    const matchedEndNode = endNodeLookup.get(endTime)
+    if (typeof matchedEndNode === 'number') {
+      startNode = Math.max(1, matchedEndNode - span + 1)
+    }
+  }
+
+  if (startNode === null) {
+    startNode = 1
+  }
+
+  startNode = clampWakeupNode(startNode, maxNode)
+  endNode = clampWakeupNode(startNode + span - 1, maxNode)
+
+  if (!hasStartTime) {
+    startTime = timeSlotNodeMap.get(startNode)?.startTime ?? ''
+  }
+
+  if (!hasEndTime) {
+    endTime = timeSlotNodeMap.get(endNode)?.endTime ?? ''
+  }
+
+  if (hasStartTime && !hasEndTime) {
+    const startMinutes = parseWakeupTimeToMinutes(startTime)
+    const startSlot = timeSlotNodeMap.get(startNode)
+    const startSlotMinutes = parseWakeupTimeToMinutes(startSlot?.startTime ?? '')
+
+    if (startMinutes !== null && startSlotMinutes !== null && startMinutes !== startSlotMinutes) {
+      const nextNode = clampWakeupNode(startNode + span, maxNode)
+      endTime = timeSlotNodeMap.get(nextNode)?.startTime ?? endTime
+    }
+  }
+
+  return {
+    startNode,
+    endNode,
+    startTime,
+    endTime,
+    weekStep: 1,
+  }
 }
 
 export function normalizeWakeupStartDate(startDate: string) {
@@ -98,24 +208,28 @@ export function parseWakeupScheduleText(text: string): ScheduleData {
     note: course.note,
   }))
 
-  const normalizedLessons: ScheduleLesson[] = lessons.map((lesson, index) => ({
-    instanceId: `${lesson.id}-${lesson.day}-${lesson.startNode}-${lesson.startWeek}-${lesson.endWeek}-${index}`,
-    courseId: lesson.id,
-    tableId: lesson.tableId,
-    day: lesson.day,
-    startNode: lesson.startNode,
-    endNode: resolveWakeupLessonEndNode(lesson, timeSlots),
-    startWeek: lesson.startWeek,
-    endWeek: lesson.endWeek,
-    weekStep: lesson.step,
-    ownTime: lesson.ownTime,
-    startTime: lesson.startTime,
-    endTime: lesson.endTime,
-    room: lesson.room,
-    teacher: lesson.teacher,
-    type: lesson.type,
-    level: lesson.level,
-  }))
+  const normalizedLessons: ScheduleLesson[] = lessons.map((lesson, index) => {
+    const range = resolveWakeupLessonRange(lesson, timeSlots, tableConfig.nodes)
+
+    return {
+      instanceId: `${lesson.id}-${lesson.day}-${range.startNode}-${lesson.startWeek}-${lesson.endWeek}-${index}`,
+      courseId: lesson.id,
+      tableId: lesson.tableId,
+      day: lesson.day,
+      startNode: range.startNode,
+      endNode: range.endNode,
+      startWeek: lesson.startWeek,
+      endWeek: lesson.endWeek,
+      weekStep: range.weekStep,
+      ownTime: lesson.ownTime,
+      startTime: range.startTime,
+      endTime: range.endTime,
+      room: lesson.room,
+      teacher: lesson.teacher,
+      type: lesson.type,
+      level: lesson.level,
+    }
+  })
 
   return {
     version: 1,

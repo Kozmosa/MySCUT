@@ -30,7 +30,11 @@ import {
 } from '../../../core/schedule/export'
 import { getScheduleThemePresetById, SCHEDULE_THEME_PRESETS, type ScheduleThemeId } from '../../../core/schedule/themePresets'
 import { resolveNearestPresetThemeIdForWakeup } from '../../../core/schedule/themeMatcher'
-import { getTimeSlotPresetName, TIME_SLOT_PRESET_OPTIONS } from '../../../core/schedule/timeSlotPresets'
+import {
+  getTimeSlotPresetName,
+  resolveNearestCampusTimeSlotPresetId,
+  TIME_SLOT_PRESET_OPTIONS,
+} from '../../../core/schedule/timeSlotPresets'
 import { setScheduleThemeId } from '../../../core/schedule/themeStorage'
 import { getSemesterStartDate, saveSemesterStartDate } from '../../../core/scheduleSettings'
 import type { ScheduleData, TimeSlotPresetId } from '../../../core/schedule/types'
@@ -371,10 +375,15 @@ function ScheduleSettingsPage() {
     messageApi.success('时间表设置已更新')
   }
 
-  const persistImportedSchedule = (scheduleData: ScheduleData, semesterDate: string, themeId: ScheduleThemeId) => {
+  const persistImportedSchedule = (
+    scheduleData: ScheduleData,
+    semesterDate: string,
+    themeId: ScheduleThemeId,
+    timeSlotPreset: TimeSlotPresetId = 'builtIn',
+  ) => {
     const result = saveScheduleDataWithOptions(scheduleData, {
       themeId,
-      timeSlotPresetId: 'builtIn',
+      timeSlotPresetId: timeSlotPreset,
       semesterStartDate: semesterDate,
       preferredName: scheduleData.table.name,
       setActive: true,
@@ -399,8 +408,9 @@ function ScheduleSettingsPage() {
       const content = await file.text()
       const scheduleData = parseWakeupScheduleText(content)
       const nextThemeId = resolveNearestPresetThemeIdForWakeup(scheduleData)
+      const nextTimeSlotPresetId = resolveNearestCampusTimeSlotPresetId(scheduleData.timeSlots)
       const nextSemesterStartDate = scheduleData.table.startDate || semesterStartDate
-      const isSaved = persistImportedSchedule(scheduleData, nextSemesterStartDate, nextThemeId)
+      const isSaved = persistImportedSchedule(scheduleData, nextSemesterStartDate, nextThemeId, nextTimeSlotPresetId)
       if (!isSaved) {
         event.target.value = ''
         return
@@ -408,11 +418,13 @@ function ScheduleSettingsPage() {
 
       setScheduleThemeId(nextThemeId)
       setScheduleThemeIdState(nextThemeId)
+      setTimeSlotPresetId(nextTimeSlotPresetId)
 
       saveSemesterStartDate(nextSemesterStartDate)
       setSemesterStartDate(nextSemesterStartDate)
       const matchedThemeName = getScheduleThemePresetById(nextThemeId).name
-      messageApi.success(`课表导入成功，已自动匹配配色：${matchedThemeName}`)
+      const matchedTimeSlotName = getTimeSlotPresetName(nextTimeSlotPresetId)
+      messageApi.success(`课表导入成功，已自动匹配配色：${matchedThemeName}，时间表：${matchedTimeSlotName}`)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '课表导入失败'
       messageApi.error(errorMessage)

@@ -108,6 +108,7 @@ function lessonTimeFromNode(timeSlots: WakeupTimeSlot[], node: number) {
 
 function convertLessonToWakeup(lesson: ScheduleLesson, timeSlots: WakeupTimeSlot[]): WakeupLesson {
   const fallbackTimes = lessonTimeFromNode(timeSlots, lesson.startNode)
+  const lessonSpan = Math.max(1, lesson.endNode - lesson.startNode + 1)
 
   return {
     id: lesson.courseId,
@@ -116,7 +117,7 @@ function convertLessonToWakeup(lesson: ScheduleLesson, timeSlots: WakeupTimeSlot
     startNode: lesson.startNode,
     startWeek: lesson.startWeek,
     endWeek: lesson.endWeek,
-    step: lesson.weekStep,
+    step: lessonSpan,
     ownTime: lesson.ownTime,
     startTime: lesson.startTime || fallbackTimes.startTime,
     endTime: lesson.endTime || fallbackTimes.endTime,
