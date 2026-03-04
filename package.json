@@ -11,6 +11,7 @@
     "build": "node scripts/buildApp.mjs",
     "build:full": "node scripts/buildFull.mjs",
     "build:android": "npm run build:full",
+    "build:ios": "npm run build:full",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -18,6 +19,7 @@
     "@capacitor/app": "^8.0.1",
     "@capacitor/cli": "^8.1.0",
     "@capacitor/core": "^8.1.0",
+    "@capacitor/ios": "^8.1.0",
     "@capacitor/status-bar": "^8.0.1",
     "antd": "^5.27.0",
     "pdfjs-dist": "^5.4.624",
