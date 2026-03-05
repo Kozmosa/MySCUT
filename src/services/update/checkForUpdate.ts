@@ -9,7 +9,12 @@ const REMOTE_VERSION_MANIFEST_URL =
   'https://raw.githubusercontent.com/Kozmosa/survive-in-scut/refs/heads/main/docs/.vuepress/public/root-assets/versions.json'
 
 type RemoteVersionAssets = {
-  apk?: string
+  apk?: string | RemoteAssetLink[]
+}
+
+type RemoteAssetLink = {
+  source?: string
+  url?: string
 }
 
 type RemoteVersionItem = {
@@ -113,19 +118,9 @@ function resolveGithubDownloadUrl(sourceUrl: string, providerOrder: UpdateLinkPr
 }
 
 function resolveDownloadUrl(item: RemoteVersionItem, providerOrder: UpdateLinkProviderId[]) {
-  const apkUrl = typeof item.assets?.apk === 'string' ? item.assets.apk.trim() : ''
+  const apkUrl = resolveAssetUrl(item.assets?.apk, providerOrder)
   if (apkUrl) {
-    const normalizedApkUrl = apkUrl.toLowerCase()
-
-    if (normalizedApkUrl.includes('manual')) {
-      return buildProviderUrl('raw', apkUrl)
-    }
-
-    if (normalizedApkUrl.includes('github')) {
-      return resolveGithubDownloadUrl(apkUrl, providerOrder)
-    }
-
-    return buildProviderUrl('raw', apkUrl)
+    return apkUrl
   }
 
   if (typeof item.releaseUrl === 'string' && item.releaseUrl.trim()) {
@@ -133,6 +128,59 @@ function resolveDownloadUrl(item: RemoteVersionItem, providerOrder: UpdateLinkPr
   }
 
   return null
+}
+
+function normalizeAssetLinks(assetField: string | RemoteAssetLink[] | undefined) {
+  if (typeof assetField === 'string') {
+    const legacyUrl = assetField.trim()
+    return legacyUrl ? [{ source: 'legacy', url: legacyUrl }] : []
+  }
+
+  if (!Array.isArray(assetField)) {
+    return []
+  }
+
+  const links = []
+  for (const entry of assetField) {
+    if (!entry || typeof entry !== 'object') {
+      continue
+    }
+
+    const source = typeof entry.source === 'string' ? entry.source.trim().toLowerCase() : ''
+    const url = typeof entry.url === 'string' ? entry.url.trim() : ''
+    if (!url) {
+      continue
+    }
+
+    links.push({
+      source: source || 'unknown',
+      url,
+    })
+  }
+
+  return links
+}
+
+function resolveAssetUrl(assetField: string | RemoteAssetLink[] | undefined, providerOrder: UpdateLinkProviderId[]) {
+  const links = normalizeAssetLinks(assetField)
+  for (const link of links) {
+    if (link.source === 'github') {
+      return resolveGithubDownloadUrl(link.url, providerOrder)
+    }
+
+    if (link.source === 'r2') {
+      return buildProviderUrl('raw', link.url)
+    }
+
+    const normalizedUrl = link.url.toLowerCase()
+    if (normalizedUrl.includes('github')) {
+      return resolveGithubDownloadUrl(link.url, providerOrder)
+    }
+
+    return buildProviderUrl('raw', link.url)
+  }
+
+  return ''
 }
 
 async function loadVersionManifest(providerOrder: UpdateLinkProviderId[]): Promise<CheckedManifest> {
