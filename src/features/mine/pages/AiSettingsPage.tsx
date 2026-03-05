@@ -26,6 +26,44 @@ const AI_PROVIDER_OPTIONS: Array<{ value: AiProviderId; label: string }> = [
   { value: 'openaiCompatible', label: 'OpenAI 兼容' },
 ]
 
+const AI_PROVIDER_GUIDES: Record<
+  AiProviderId,
+  {
+    title: string
+    overview: string
+    needConfig: boolean
+    steps: string[]
+  }
+> = {
+  localModel: {
+    title: '本地服务说明',
+    overview: '当前版本暂未开放本地模型调用能力，选择该方式时不会发起可用推理请求。',
+    needConfig: false,
+    steps: ['无需额外配置。', '如需立刻使用 AI，建议切换到“内置 AI 服务”或“OpenAI 兼容”。'],
+  },
+  builtinGateway: {
+    title: '内置 AI 服务说明',
+    overview: '通过应用内置网关调用 AI，适合开箱即用。默认情况下用户侧不需要填写密钥。',
+    needConfig: false,
+    steps: [
+      '直接选择“内置 AI 服务”并点击“保存设置”。',
+      '返回功能页发起 AI 请求即可使用。',
+      '若开发环境不可用，请联系维护者检查内置网关地址配置。',
+    ],
+  },
+  openaiCompatible: {
+    title: 'OpenAI 兼容调用说明',
+    overview: '使用兼容 OpenAI Chat Completions 的服务商接口，适合自带 Key 与私有部署场景。',
+    needConfig: true,
+    steps: [
+      '填写 Base URL（示例：https://api.openai.com/v1）。',
+      '填写 API Key（格式通常为 Bearer Token 对应密钥）。',
+      '点击“保存设置”后即可生效。',
+      '若返回 401/403，请确认 Key 权限；若 404，请确认 Base URL 不要拼到 /chat/completions。',
+    ],
+  },
+}
+
 function AiSettingsPage() {
   const navigate = useNavigate()
   const [messageApi, contextHolder] = message.useMessage()
@@ -36,6 +74,7 @@ function AiSettingsPage() {
   const closeTimerRef = useRef<number | null>(null)
   const enterTimerRef = useRef<number | null>(null)
   const isClosingRef = useRef(false)
+  const providerGuide = AI_PROVIDER_GUIDES[providerId]
 
   const navigateBack = () => {
     if (window.history.length > 1) {
@@ -175,6 +214,19 @@ function AiSettingsPage() {
                 ariaLabel='AI 调用方式切换'
               />
             </div>
+          </div>
+        </div>
+
+        <div className='mine-button-group'>
+          <div className='mine-group-button mine-detail-card-item ai-provider-guide-card'>
+            <p className='mine-detail-card-title'>{providerGuide.title}</p>
+            <p className='mine-detail-card-description'>{providerGuide.overview}</p>
+            <p className='mine-detail-card-description'>配置要求：{providerGuide.needConfig ? '需要配置' : '无需额外配置'}</p>
+            <ol className='ai-provider-guide-list'>
+              {providerGuide.steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
           </div>
         </div>
 

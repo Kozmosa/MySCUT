@@ -621,6 +621,24 @@ body {
   color: var(--text-muted);
 }
 
+.ai-provider-guide-card {
+  align-items: flex-start;
+}
+
+.ai-provider-guide-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ai-provider-guide-list li {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .mine-theme-mode-header,
 .mine-theme-mode-footer {
   display: flex;
