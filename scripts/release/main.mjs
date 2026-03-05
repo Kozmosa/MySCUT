@@ -5,10 +5,10 @@ import { ensureMainBranch, ensureTagNotExists, stageCommitAndTag } from './gitFl
 import { syncLatestAssetsToManual, ensureManualMainBranch, commitAndPushManualAssets } from './manualAssets.mjs'
 import { writeReleaseNoteFile } from './notes.mjs'
 import { parseReleaseOptions } from './options.mjs'
-import { askText, askYesNo } from './prompt.mjs'
+import { askHidden, askText, askYesNo } from './prompt.mjs'
 import { extractRepoInfo } from './repo.mjs'
 import { buildR2PublicUrl, buildR2ReleaseObjectKey, uploadReleaseAssetToR2 } from './r2.mjs'
-import { loadR2Config } from './r2Config.mjs'
+import { bootstrapR2EnvFile, loadR2Config, shouldBootstrapR2EnvFile } from './r2Config.mjs'
 import { run } from './shared.mjs'
 import { updatePackageVersion, updateVersionsJson, validateTargetVersion } from './versioning.mjs'
 
@@ -38,6 +38,13 @@ async function main() {
   console.log(`Target platforms: ${targetPlatforms.join(', ')}`)
 
   const isR2Release = releaseOptions.assetSource === 'r2'
+  if (isR2Release && shouldBootstrapR2EnvFile()) {
+    await bootstrapR2EnvFile({
+      askText,
+      askHidden,
+    })
+  }
+
   const r2Config = isR2Release ? loadR2Config() : null
   const plannedR2AssetUrls = {}
 
