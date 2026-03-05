@@ -2,136 +2,102 @@
 
 ## 1. 目标与定位
 
-- QMS（QiMeng Schedule）是启梦课表导出/导入的自有交换格式。
-- QMS 设计目标是“完整、可回放、可扩展”：不仅包含课表业务字段，也包含与课表绑定的主题和学期起始日期等上下文。
-- QMS 导出单位是“单个已保存课表”。
+- QMS（QiMeng Schedule）是启梦课表导出/导入的交换格式。
+- 当前主版本为 `v2`，保留 `v1` 导入兼容。
+- v2 的核心目标：
+  - 保留渲染所需的规范化课表字段
+  - 减少冗余体积（移除 `raw`，并按预设策略写入时间表）
 
 ## 2. 文件与编码约定
 
 - 扩展名：`.qms`
-- 内容编码：UTF-8
-- 内容类型：JSON 文本
+- 编码：UTF-8
+- 内容：JSON 文本
 
-## 3. 顶层结构（Schema v1）
+## 3. 顶层结构
 
 ```ts
-type QmsExportV1 = {
+type QmsExportV2 = {
   schema: 'qms'
-  version: 1
+  version: 2
   exportedAt: number
-  schedule: SavedSchedule
+  schedule: QmsScheduleV2
 }
 ```
 
 字段说明：
 
-- `schema`：固定为 `'qms'`，用于快速识别文件类型
-- `version`：QMS 格式版本号，当前为 `1`
+- `schema`：固定 `'qms'`
+- `version`：当前为 `2`
 - `exportedAt`：导出时间戳（毫秒）
-- `schedule`：完整的已保存课表实体（详见第 4 节）
+- `schedule`：单个课表实体（见第 4 节）
 
-## 4. `schedule` 结构定义
+## 4. `schedule` 结构（v2）
 
 ```ts
-type SavedSchedule = {
-  id: string
+type QmsScheduleV2 = {
   name: string
-  source: 'wakeup' | 'scutHtml'
+  source: 'wakeup' | 'scutHtml' | 'intersection'
   themeId: string
   semesterStartDate: string
   createdAt: number
-  scheduleData: ScheduleData
-}
-```
-
-说明：
-
-- `id`：导出时的原课表 ID，仅作为信息保留；导入时应重新分配新 ID
-- `name`：课表显示名
-- `source`：原始来源标识（WakeUp 或华工 HTML）
-- `themeId`：课表绑定的配色方案 ID
-- `semesterStartDate`：课表绑定的学期起始日期（`YYYY-MM-DD`）
-- `createdAt`：原课表创建时间戳
-- `scheduleData`：规范化课表主体，结构与应用内部一致
-
-## 5. `scheduleData` 要求
-
-`scheduleData` 直接复用当前内部定义（`ScheduleData`）：
-
-- `version` 必须为 `1`
-- `source` 为 `'wakeup' | 'scutHtml'`
-- 包含 `table/timeSlots/courses/lessons/raw`
-- `raw.kind` 与 `source` 应保持一致
-
-参考：[[DATA_STRUCTURE#6. 持久化存储（多课表）]]
-
-## 6. 示例
-
-```json
-{
-  "schema": "qms",
-  "version": 1,
-  "exportedAt": 1772160000000,
-  "schedule": {
-    "id": "schedule-1772150000000-ab12cd",
-    "name": "2025-2026-2",
-    "source": "wakeup",
-    "themeId": "skyBlue",
-    "semesterStartDate": "2026-02-23",
-    "createdAt": 1772150000000,
-    "scheduleData": {
-      "version": 1,
-      "source": "wakeup",
-      "importedAt": 1772150000000,
-      "table": {
-        "id": 1,
-        "name": "2025-2026-2",
-        "campus": "华南理工大学",
-        "school": "华南理工大学",
-        "maxWeek": 20,
-        "nodes": 11,
-        "startDate": "2026-02-23",
-        "showSat": true,
-        "showSun": false,
-        "timeTable": 2
-      },
-      "timeSlots": [],
-      "courses": [],
-      "lessons": [],
-      "raw": {
-        "kind": "wakeup",
-        "meta": {},
-        "timeSlots": [],
-        "tableConfig": {},
-        "courses": [],
-        "lessons": []
-      }
+  timeSlotPresetId: 'builtIn' | 'universityTown' | 'wushan' | 'international' | 'union'
+  scheduleData: {
+    version: 1
+    source: 'wakeup' | 'scutHtml' | 'intersection'
+    importedAt: number
+    table: {
+      id: number
+      name: string
+      campus: string
+      school: string
+      maxWeek: number
+      nodes: number
+      startDate: string
+      showSat: boolean
+      showSun: boolean
+      timeTable: number
     }
+    timeSlots?: WakeupTimeSlot[]
+    courses: ScheduleCourse[]
+    lessons: ScheduleLesson[]
   }
 }
 ```
 
-## 7. 解析方法（导入侧建议）
+注意：
 
-建议按以下顺序处理：
+- v2 不再导出 `raw`。
+- 时间表写入规则：
+  - `timeSlotPresetId !== 'builtIn'`：仅写预设 ID，不写 `scheduleData.timeSlots`
+  - `timeSlotPresetId === 'builtIn'`：写预设 ID，并写 `scheduleData.timeSlots`
 
-1. 读取文本并 `JSON.parse`
-2. 校验顶层：`schema === 'qms'`、`version === 1`
-3. 校验 `schedule` 基本字段：`id/name/source/themeId/semesterStartDate/createdAt/scheduleData`
-4. 校验 `scheduleData` 至少满足内部最小结构校验（`version/source/table/courses/lessons`）
-5. 通过当前存储 API 写入课表库：
-   - 以 `schedule.scheduleData` 为主体
-   - 以 `schedule.themeId/semesterStartDate/name` 作为导入选项
-   - 导入后分配新的本地 `schedule.id`
+## 5. 导入兼容策略
 
-错误处理建议：
+- 继续支持 `v1` 文件导入。
+- `v1`：读取 `schedule`（旧结构）并兼容映射。
+- `v2`：按第 4 节结构解析。
+- 两者导入后都执行时间表裁剪逻辑（见第 6 节）。
 
-- 顶层 `schema`/`version` 不匹配：提示“QMS 文件版本不受支持”
-- 字段缺失或类型错误：提示“QMS 文件结构无效”
-- 存储失败：提示“导入失败，请检查浏览器存储空间”
+## 6. 时间表裁剪规则
 
-## 8. 向后兼容与演进
+- 导入阶段会顺序遍历 `timeSlots`。
+- 一旦发现相邻两项 `endTime` 的分钟差值为 `10`，即判定进入冗余段。
+- 命中后，触发对及其后续全部丢弃（保留命中位置之前的节点）。
 
-- 新版本应递增 `version`，并保留 v1 解析器。
-- 若新增字段，优先采用“可选字段 + 默认值”策略，避免破坏旧导入逻辑。
-- 若未来引入加密/签名，可在顶层追加 `integrity` 或 `signature` 字段，不影响 v1 基础结构。
+## 7. 压缩QMS（Clipboard）
+
+- 压缩QMS不是新的 schema 版本，仅是传输编码层。
+- 编码：`base64(zstd(qmsJsonTextUtf8))`
+- 解码：`qmsJsonTextUtf8 = zstd^-1(base64^-1(compressedText))`
+
+## 8. 抹除详细信息与时间表优先级
+
+- 导出流程支持“抹除详细信息”。
+- 当“抹去绑定的作息时间”开启时，优先抹除，不写入时间表。
+- 导出界面的“自定义写入的时间表”仅在未抹去作息时间时生效。
+
+## 9. 历史版本说明
+
+- `v1`：导出 `SavedSchedule` 完整结构，包含 `raw`。
+- `v2`：改为精简交换结构，移除 `raw`，并按预设策略写入时间表。

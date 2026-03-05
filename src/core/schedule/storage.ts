@@ -18,7 +18,7 @@ type SaveScheduleOptions = {
 }
 
 function normalizeTimeSlotPresetId(value: unknown): TimeSlotPresetId {
-  if (value === 'universityTown' || value === 'wushan' || value === 'international' || value === 'builtIn') {
+  if (value === 'universityTown' || value === 'wushan' || value === 'international' || value === 'builtIn' || value === 'union') {
     return value
   }
 
@@ -38,7 +38,7 @@ function isScheduleData(value: unknown): value is ScheduleData {
     return false
   }
 
-  if (value.source !== 'wakeup' && value.source !== 'scutHtml') {
+  if (value.source !== 'wakeup' && value.source !== 'scutHtml' && value.source !== 'intersection') {
     return false
   }
 
@@ -64,10 +64,11 @@ function isSavedSchedule(value: unknown): value is SavedSchedule {
 
   if (
     typeof value.timeSlotPresetId !== 'undefined' &&
-    value.timeSlotPresetId !== 'builtIn' &&
-    value.timeSlotPresetId !== 'universityTown' &&
-    value.timeSlotPresetId !== 'wushan' &&
-    value.timeSlotPresetId !== 'international'
+      value.timeSlotPresetId !== 'builtIn' &&
+      value.timeSlotPresetId !== 'universityTown' &&
+      value.timeSlotPresetId !== 'wushan' &&
+      value.timeSlotPresetId !== 'international' &&
+      value.timeSlotPresetId !== 'union'
   ) {
     return false
   }

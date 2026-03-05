@@ -33,11 +33,12 @@ export function createEmptyWeekScheduleRenderData(): WeekScheduleRenderData {
 }
 
 export function buildWeekScheduleRenderData(scheduleData: ScheduleData, currentWeek: number, maxNode = 12) {
-  const courseMap = new Map<number, { name: string; color: string }>()
+  const courseMap = new Map<number, { name: string; color: string; credit: number }>()
   scheduleData.courses.forEach((course) => {
     courseMap.set(course.id, {
       name: course.name,
       color: course.color,
+      credit: course.credit,
     })
   })
 
@@ -61,6 +62,7 @@ export function buildWeekScheduleRenderData(scheduleData: ScheduleData, currentW
       courseId: lesson.courseId,
       name: course?.name ?? '未命名课程',
       color: course?.color ?? '',
+      credit: course?.credit ?? 0,
       teacher: lesson.teacher,
       room: lesson.room,
       lesson: {

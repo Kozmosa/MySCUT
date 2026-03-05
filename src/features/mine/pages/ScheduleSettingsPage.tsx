@@ -1,5 +1,6 @@
 import { type ChangeEvent, useEffect, useRef, useState } from 'react'
 import { CloseOutlined } from '@ant-design/icons'
+import { Capacitor } from '@capacitor/core'
 import { DatePicker, Input, Modal, Select, Switch, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { CircleIconButton } from '../../../components/buttons/CircleIconButton'
@@ -20,10 +21,21 @@ import {
   setActiveScheduleTimeSlotPreset,
   switchActiveSchedule,
 } from '../../../core/schedule/storage'
-import { buildQmsExportText, buildWakeupExportText, downloadTextFile } from '../../../core/schedule/export'
+import {
+  applyTimeSlotPresetForExport,
+  buildQmsExportText,
+  buildWakeupExportText,
+  downloadTextFile,
+  sanitizeScheduleForExport,
+  type ExportSanitizeOptions,
+} from '../../../core/schedule/export'
 import { getScheduleThemePresetById, SCHEDULE_THEME_PRESETS, type ScheduleThemeId } from '../../../core/schedule/themePresets'
 import { resolveNearestPresetThemeIdForWakeup } from '../../../core/schedule/themeMatcher'
-import { getTimeSlotPresetName, TIME_SLOT_PRESET_OPTIONS } from '../../../core/schedule/timeSlotPresets'
+import {
+  getTimeSlotPresetName,
+  resolveNearestCampusTimeSlotPresetId,
+  TIME_SLOT_PRESET_OPTIONS,
+} from '../../../core/schedule/timeSlotPresets'
 import { setScheduleThemeId } from '../../../core/schedule/themeStorage'
 import { getSemesterStartDate, saveSemesterStartDate } from '../../../core/scheduleSettings'
 import type { ScheduleData, TimeSlotPresetId } from '../../../core/schedule/types'
@@ -32,7 +44,7 @@ import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../../co
 const { TextArea } = Input
 
 type HtmlImportMethod = 'file' | 'clipboard' | 'input'
-type ScheduleExportFormat = 'wakeup' | 'qms'
+type ScheduleExportFormat = 'wakeup' | 'qms' | 'qmsCompressedClipboard'
 
 type SavedScheduleItem = ReturnType<typeof listSavedSchedules>[number]
 
@@ -61,6 +73,20 @@ function sanitizeFileName(value: string) {
   return value.replace(/[\\/:*?"<>|]/g, '_').trim() || 'schedule'
 }
 
+const DEFAULT_EXPORT_SANITIZE_OPTIONS: ExportSanitizeOptions = {
+  removeBoundTimeSlots: false,
+  removeCourseName: false,
+  removeTeacherName: false,
+  removeRoom: false,
+}
+
+const ENABLED_EXPORT_SANITIZE_OPTIONS: ExportSanitizeOptions = {
+  removeBoundTimeSlots: true,
+  removeCourseName: true,
+  removeTeacherName: true,
+  removeRoom: true,
+}
+
 function ScheduleSettingsPage() {
   const navigate = useNavigate()
   const [messageApi, contextHolder] = message.useMessage()
@@ -82,6 +108,10 @@ function ScheduleSettingsPage() {
   const [isExportFormatModalOpen, setIsExportFormatModalOpen] = useState(false)
   const [exportTargetScheduleId, setExportTargetScheduleId] = useState('')
   const [exportFormat, setExportFormat] = useState<ScheduleExportFormat>('wakeup')
+  const [isExportCustomTimeSlotEnabled, setIsExportCustomTimeSlotEnabled] = useState(false)
+  const [exportTimeSlotPresetId, setExportTimeSlotPresetId] = useState<TimeSlotPresetId>('builtIn')
+  const [isExportSanitizeEnabled, setIsExportSanitizeEnabled] = useState(false)
+  const [exportSanitizeOptions, setExportSanitizeOptions] = useState<ExportSanitizeOptions>(DEFAULT_EXPORT_SANITIZE_OPTIONS)
   const [savedSchedules, setSavedSchedules] = useState<SavedScheduleItem[]>(() => listSavedSchedules())
   const [isAutoSimplifyHintEnabled, setIsAutoSimplifyHintEnabled] = useState(() => getAutoSimplifyScheduleHintEnabled())
   const [semesterStartDate, setSemesterStartDate] = useState(() => getSemesterStartDate())
@@ -99,6 +129,7 @@ function ScheduleSettingsPage() {
   const closeTimerRef = useRef<number | null>(null)
   const enterTimerRef = useRef<number | null>(null)
   const isClosingRef = useRef(false)
+  const isAndroidNative = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
 
   const navigateBack = () => {
     if (window.history.length > 1) {
@@ -216,6 +247,31 @@ function ScheduleSettingsPage() {
     qmsFileInputRef.current?.click()
   }
 
+  const handleImportScutJwEntry = () => {
+    setIsImportModalOpen(false)
+    navigate('/mine/import-scut-jw')
+  }
+
+  const handleImportCompressedQmsFromClipboardEntry = async () => {
+    setIsImportModalOpen(false)
+
+    if (!navigator.clipboard?.readText) {
+      messageApi.error('当前环境不支持读取剪贴板')
+      return
+    }
+
+    try {
+      const compressedQmsText = await navigator.clipboard.readText()
+      const compressedQmsModule = await import('../../../core/schedule/compressedQms')
+      const decodeCompressedQmsText = compressedQmsModule.decodeCompressedQmsText
+      const qmsText = await decodeCompressedQmsText(compressedQmsText)
+      await handleImportQmsText(qmsText)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '压缩QMS导入失败'
+      messageApi.error(errorMessage)
+    }
+  }
+
   const handleOpenHtmlImportMethod = () => {
     setHtmlImportMethod('file')
     setIsHtmlImportMethodModalOpen(true)
@@ -262,7 +318,23 @@ function ScheduleSettingsPage() {
     setSavedSchedules(schedules)
     setExportTargetScheduleId('')
     setExportFormat('wakeup')
+    setIsExportSanitizeEnabled(false)
+    setExportSanitizeOptions(DEFAULT_EXPORT_SANITIZE_OPTIONS)
     setIsScheduleExportModalOpen(true)
+  }
+
+  const handleExportSanitizeSwitchChange = (checked: boolean) => {
+    setIsExportSanitizeEnabled(checked)
+    if (checked) {
+      setExportSanitizeOptions(ENABLED_EXPORT_SANITIZE_OPTIONS)
+    }
+  }
+
+  const handleExportSanitizeOptionSwitchChange = (key: keyof ExportSanitizeOptions, checked: boolean) => {
+    setExportSanitizeOptions((previousOptions) => ({
+      ...previousOptions,
+      [key]: checked,
+    }))
   }
 
   const handleAutoSimplifyHintSwitchChange = (checked: boolean) => {
@@ -306,10 +378,15 @@ function ScheduleSettingsPage() {
     messageApi.success('时间表设置已更新')
   }
 
-  const persistImportedSchedule = (scheduleData: ScheduleData, semesterDate: string, themeId: ScheduleThemeId) => {
+  const persistImportedSchedule = (
+    scheduleData: ScheduleData,
+    semesterDate: string,
+    themeId: ScheduleThemeId,
+    timeSlotPreset: TimeSlotPresetId = 'builtIn',
+  ) => {
     const result = saveScheduleDataWithOptions(scheduleData, {
       themeId,
-      timeSlotPresetId: 'builtIn',
+      timeSlotPresetId: timeSlotPreset,
       semesterStartDate: semesterDate,
       preferredName: scheduleData.table.name,
       setActive: true,
@@ -334,8 +411,9 @@ function ScheduleSettingsPage() {
       const content = await file.text()
       const scheduleData = parseWakeupScheduleText(content)
       const nextThemeId = resolveNearestPresetThemeIdForWakeup(scheduleData)
+      const nextTimeSlotPresetId = resolveNearestCampusTimeSlotPresetId(scheduleData.timeSlots)
       const nextSemesterStartDate = scheduleData.table.startDate || semesterStartDate
-      const isSaved = persistImportedSchedule(scheduleData, nextSemesterStartDate, nextThemeId)
+      const isSaved = persistImportedSchedule(scheduleData, nextSemesterStartDate, nextThemeId, nextTimeSlotPresetId)
       if (!isSaved) {
         event.target.value = ''
         return
@@ -343,17 +421,51 @@ function ScheduleSettingsPage() {
 
       setScheduleThemeId(nextThemeId)
       setScheduleThemeIdState(nextThemeId)
+      setTimeSlotPresetId(nextTimeSlotPresetId)
 
       saveSemesterStartDate(nextSemesterStartDate)
       setSemesterStartDate(nextSemesterStartDate)
       const matchedThemeName = getScheduleThemePresetById(nextThemeId).name
-      messageApi.success(`课表导入成功，已自动匹配配色：${matchedThemeName}`)
+      const matchedTimeSlotName = getTimeSlotPresetName(nextTimeSlotPresetId)
+      messageApi.success(`课表导入成功，已自动匹配配色：${matchedThemeName}，时间表：${matchedTimeSlotName}`)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '课表导入失败'
       messageApi.error(errorMessage)
     }
 
     event.target.value = ''
+  }
+
+  const handleImportQmsText = async (content: string) => {
+    try {
+      const parsedQms = parseQmsScheduleText(content)
+      const nextThemeId = getScheduleThemePresetById(parsedQms.themeId).id
+      const nextSemesterStartDate = parsedQms.semesterStartDate || semesterStartDate
+
+      const result = saveScheduleDataWithOptions(parsedQms.scheduleData, {
+        themeId: nextThemeId,
+        timeSlotPresetId: parsedQms.timeSlotPresetId,
+        semesterStartDate: nextSemesterStartDate,
+        preferredName: parsedQms.preferredName,
+        setActive: true,
+      })
+
+      if (!result.ok) {
+        messageApi.error('QMS 课表保存失败，请检查浏览器存储空间')
+        return
+      }
+
+      setScheduleThemeId(nextThemeId)
+      setScheduleThemeIdState(nextThemeId)
+      setTimeSlotPresetId(parsedQms.timeSlotPresetId)
+      saveSemesterStartDate(nextSemesterStartDate)
+      setSemesterStartDate(nextSemesterStartDate)
+      refreshScheduleState()
+      messageApi.success('QMS 课表导入成功')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'QMS 课表导入失败'
+      messageApi.error(errorMessage)
+    }
   }
 
   const handleImportQms = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -364,36 +476,10 @@ function ScheduleSettingsPage() {
 
     try {
       const content = await file.text()
-      const parsedQms = parseQmsScheduleText(content)
-      const nextThemeId = getScheduleThemePresetById(parsedQms.themeId).id
-      const nextSemesterStartDate = parsedQms.semesterStartDate || semesterStartDate
-
-      const result = saveScheduleDataWithOptions(parsedQms.scheduleData, {
-        themeId: nextThemeId,
-        timeSlotPresetId: 'builtIn',
-        semesterStartDate: nextSemesterStartDate,
-        preferredName: parsedQms.preferredName,
-        setActive: true,
-      })
-
-      if (!result.ok) {
-        messageApi.error('QMS 课表保存失败，请检查浏览器存储空间')
-        event.target.value = ''
-        return
-      }
-
-      setScheduleThemeId(nextThemeId)
-      setScheduleThemeIdState(nextThemeId)
-      saveSemesterStartDate(nextSemesterStartDate)
-      setSemesterStartDate(nextSemesterStartDate)
-      refreshScheduleState()
-      messageApi.success('QMS 课表导入成功')
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'QMS 课表导入失败'
-      messageApi.error(errorMessage)
+      await handleImportQmsText(content)
+    } finally {
+      event.target.value = ''
     }
-
-    event.target.value = ''
   }
 
   const handleImportHtmlFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -512,11 +598,15 @@ function ScheduleSettingsPage() {
       return
     }
 
+    const targetSchedule = loadSavedScheduleById(exportTargetScheduleId)
+    const nextPresetId = targetSchedule?.timeSlotPresetId ?? 'builtIn'
+    setExportTimeSlotPresetId(nextPresetId)
+    setIsExportCustomTimeSlotEnabled(false)
     setIsScheduleExportModalOpen(false)
     setIsExportFormatModalOpen(true)
   }
 
-  const handleConfirmExportFormat = () => {
+  const handleConfirmExportFormat = async () => {
     if (!exportTargetScheduleId) {
       messageApi.error('未选择导出课表，请重新选择')
       setIsExportFormatModalOpen(false)
@@ -532,13 +622,29 @@ function ScheduleSettingsPage() {
 
     try {
       const baseFileName = `${sanitizeFileName(targetSchedule.name)}_${formatExportTimestamp(new Date())}`
+      const effectiveTimeSlotPresetId = isExportCustomTimeSlotEnabled ? exportTimeSlotPresetId : targetSchedule.timeSlotPresetId
+      const timeSlotBoundSchedule = applyTimeSlotPresetForExport(targetSchedule, effectiveTimeSlotPresetId)
+      const exportSchedule = isExportSanitizeEnabled
+        ? sanitizeScheduleForExport(timeSlotBoundSchedule, exportSanitizeOptions)
+        : timeSlotBoundSchedule
 
       if (exportFormat === 'wakeup') {
-        const wakeupText = buildWakeupExportText(targetSchedule)
+        const wakeupText = buildWakeupExportText(exportSchedule)
         downloadTextFile(`${baseFileName}.wakeup_schedule`, wakeupText)
-      } else {
-        const qmsText = buildQmsExportText(targetSchedule)
+      } else if (exportFormat === 'qms') {
+        const qmsText = buildQmsExportText(exportSchedule)
         downloadTextFile(`${baseFileName}.qms`, qmsText, 'application/json;charset=utf-8')
+      } else {
+        if (!navigator.clipboard?.writeText) {
+          messageApi.error('当前环境不支持写入剪贴板')
+          return
+        }
+
+        const qmsText = buildQmsExportText(exportSchedule)
+        const compressedQmsModule = await import('../../../core/schedule/compressedQms')
+        const encodeCompressedQmsText = compressedQmsModule.encodeCompressedQmsText
+        const compressedQmsText = await encodeCompressedQmsText(qmsText)
+        await navigator.clipboard.writeText(compressedQmsText)
       }
 
       messageApi.success('课表导出成功')
@@ -660,7 +766,7 @@ function ScheduleSettingsPage() {
       <input
         ref={wakeupFileInputRef}
         type='file'
-        accept='.wakeup_schedule,.json,.txt'
+        accept='.wakeup_schedule,.json,.txt,.bin'
         className='schedule-settings-file-input'
         onChange={handleImportSchedule}
       />
@@ -668,7 +774,7 @@ function ScheduleSettingsPage() {
       <input
         ref={qmsFileInputRef}
         type='file'
-        accept='.qms,.json'
+        accept='.qms,.json,.txt'
         className='schedule-settings-file-input'
         onChange={handleImportQms}
       />
@@ -676,7 +782,7 @@ function ScheduleSettingsPage() {
       <input
         ref={htmlFileInputRef}
         type='file'
-        accept='.html,.htm,.txt'
+        accept='.html,.htm,.mht,.mhtml,.txt'
         className='schedule-settings-file-input'
         onChange={handleImportHtmlFile}
       />
@@ -690,6 +796,8 @@ function ScheduleSettingsPage() {
         cancelText='取消'
       >
         <DatePicker
+          className='schedule-semester-date-picker'
+          inputReadOnly
           style={{ width: '100%' }}
           format='YYYY-MM-DD'
           placeholder={semesterStartDate}
@@ -719,8 +827,16 @@ function ScheduleSettingsPage() {
           <button type='button' className='schedule-import-item' onClick={handleImportPdfEntry}>
             从华工教务PDF导入
           </button>
+          {isAndroidNative && (
+            <button type='button' className='schedule-import-item' onClick={handleImportScutJwEntry}>
+              从华工教务系统导入
+            </button>
+          )}
           <button type='button' className='schedule-import-item' onClick={handleImportQmsEntry}>
             从启梦文件QMS导入
+          </button>
+          <button type='button' className='schedule-import-item' onClick={handleImportCompressedQmsFromClipboardEntry}>
+            从剪贴板压缩QMS导入
           </button>
         </div>
       </Modal>
@@ -859,8 +975,81 @@ function ScheduleSettingsPage() {
           options={[
             { value: 'wakeup', label: 'WakeUp 兼容格式（.wakeup_schedule）' },
             { value: 'qms', label: '启梦格式 QMS（.qms）' },
+            { value: 'qmsCompressedClipboard', label: '压缩QMS（复制到剪贴板）' },
           ]}
         />
+
+        <div className='schedule-export-sanitize-card'>
+          <div className='schedule-export-sanitize-row'>
+            <div className='mine-setting-copy'>
+              <p className='mine-detail-card-title'>自定义写入的时间表</p>
+              <p className='mine-detail-card-description'>开启后可指定导出时写入的时间表预设</p>
+            </div>
+            <Switch checked={isExportCustomTimeSlotEnabled} onChange={setIsExportCustomTimeSlotEnabled} />
+          </div>
+
+          {isExportCustomTimeSlotEnabled && (
+            <div className='schedule-export-sanitize-options'>
+              <div className='mine-theme-mode-header'>
+                <span>导出时间表</span>
+                <span className='mine-theme-toggle-meta'>{getTimeSlotPresetName(exportTimeSlotPresetId)}</span>
+              </div>
+
+              <div className='mine-theme-family-list'>
+                <VerticalSlideSelector
+                  value={exportTimeSlotPresetId}
+                  options={TIME_SLOT_PRESET_SELECTOR_OPTIONS}
+                  onChange={setExportTimeSlotPresetId}
+                  ariaLabel='导出时间表设置'
+                  className='schedule-theme-selector'
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className='schedule-export-sanitize-card'>
+          <div className='schedule-export-sanitize-row'>
+            <div className='mine-setting-copy'>
+              <p className='mine-detail-card-title'>抹除详细信息</p>
+              <p className='mine-detail-card-description'>开启后可按需抹除导出课表中的敏感字段</p>
+            </div>
+            <Switch checked={isExportSanitizeEnabled} onChange={handleExportSanitizeSwitchChange} />
+          </div>
+
+          {isExportSanitizeEnabled && (
+            <div className='schedule-export-sanitize-options'>
+              <div className='schedule-export-sanitize-option'>
+                <span>抹去绑定的作息时间</span>
+                <Switch
+                  checked={exportSanitizeOptions.removeBoundTimeSlots}
+                  onChange={(checked) => handleExportSanitizeOptionSwitchChange('removeBoundTimeSlots', checked)}
+                />
+              </div>
+              <div className='schedule-export-sanitize-option'>
+                <span>抹去课程名称</span>
+                <Switch
+                  checked={exportSanitizeOptions.removeCourseName}
+                  onChange={(checked) => handleExportSanitizeOptionSwitchChange('removeCourseName', checked)}
+                />
+              </div>
+              <div className='schedule-export-sanitize-option'>
+                <span>抹去教师名称</span>
+                <Switch
+                  checked={exportSanitizeOptions.removeTeacherName}
+                  onChange={(checked) => handleExportSanitizeOptionSwitchChange('removeTeacherName', checked)}
+                />
+              </div>
+              <div className='schedule-export-sanitize-option'>
+                <span>抹去教室位置</span>
+                <Switch
+                  checked={exportSanitizeOptions.removeRoom}
+                  onChange={(checked) => handleExportSanitizeOptionSwitchChange('removeRoom', checked)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
     </section>
   )

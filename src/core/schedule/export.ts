@@ -3,18 +3,75 @@ import type {
   ScheduleCourse,
   ScheduleData,
   ScheduleLesson,
+  TimeSlotPresetId,
   WakeupCourse,
   WakeupLesson,
   WakeupMeta,
   WakeupTableConfig,
   WakeupTimeSlot,
 } from './types'
+import { resolveScheduleTimeSlotsByPreset } from './timeSlotPresets'
 
 type QmsExportPayload = {
   schema: 'qms'
-  version: 1
+  version: 2
   exportedAt: number
-  schedule: SavedSchedule
+  schedule: {
+    name: string
+    source: SavedSchedule['source']
+    themeId: string
+    semesterStartDate: string
+    createdAt: number
+    timeSlotPresetId: TimeSlotPresetId
+    scheduleData: {
+      version: 1
+      source: ScheduleData['source']
+      importedAt: number
+      table: ScheduleData['table']
+      timeSlots?: WakeupTimeSlot[]
+      courses: ScheduleCourse[]
+      lessons: ScheduleLesson[]
+    }
+  }
+}
+
+export type ExportSanitizeOptions = {
+  removeBoundTimeSlots: boolean
+  removeCourseName: boolean
+  removeTeacherName: boolean
+  removeRoom: boolean
+}
+
+export function applyTimeSlotPresetForExport(savedSchedule: SavedSchedule, presetId: TimeSlotPresetId): SavedSchedule {
+  const resolvedTimeSlots = resolveScheduleTimeSlotsByPreset(savedSchedule.scheduleData, presetId)
+  const resolvedTimeTable = resolvedTimeSlots[0]?.timeTable ?? savedSchedule.scheduleData.table.timeTable
+
+  const scheduleData: ScheduleData = {
+    ...savedSchedule.scheduleData,
+    table: {
+      ...savedSchedule.scheduleData.table,
+      timeTable: resolvedTimeTable,
+    },
+    timeSlots: resolvedTimeSlots,
+    raw: savedSchedule.scheduleData.raw,
+  }
+
+  if (savedSchedule.scheduleData.raw.kind === 'wakeup') {
+    scheduleData.raw = {
+      ...savedSchedule.scheduleData.raw,
+      timeSlots: resolvedTimeSlots,
+      tableConfig: {
+        ...savedSchedule.scheduleData.raw.tableConfig,
+        timeTable: resolvedTimeTable,
+      },
+    }
+  }
+
+  return {
+    ...savedSchedule,
+    timeSlotPresetId: presetId,
+    scheduleData,
+  }
 }
 
 function formatWakeupStartDate(dateText: string) {
@@ -101,6 +158,7 @@ function lessonTimeFromNode(timeSlots: WakeupTimeSlot[], node: number) {
 
 function convertLessonToWakeup(lesson: ScheduleLesson, timeSlots: WakeupTimeSlot[]): WakeupLesson {
   const fallbackTimes = lessonTimeFromNode(timeSlots, lesson.startNode)
+  const lessonSpan = Math.max(1, lesson.endNode - lesson.startNode + 1)
 
   return {
     id: lesson.courseId,
@@ -109,7 +167,7 @@ function convertLessonToWakeup(lesson: ScheduleLesson, timeSlots: WakeupTimeSlot
     startNode: lesson.startNode,
     startWeek: lesson.startWeek,
     endWeek: lesson.endWeek,
-    step: lesson.weekStep,
+    step: lessonSpan,
     ownTime: lesson.ownTime,
     startTime: lesson.startTime || fallbackTimes.startTime,
     endTime: lesson.endTime || fallbackTimes.endTime,
@@ -136,6 +194,64 @@ function buildWakeupRawFromSchedule(scheduleData: ScheduleData) {
   }
 }
 
+export function sanitizeScheduleForExport(savedSchedule: SavedSchedule, options: ExportSanitizeOptions): SavedSchedule {
+  const scheduleData: ScheduleData = {
+    ...savedSchedule.scheduleData,
+    table: {
+      ...savedSchedule.scheduleData.table,
+      timeTable: options.removeBoundTimeSlots ? 2 : savedSchedule.scheduleData.table.timeTable,
+    },
+    timeSlots: options.removeBoundTimeSlots ? [] : savedSchedule.scheduleData.timeSlots,
+    courses: options.removeCourseName
+      ? savedSchedule.scheduleData.courses.map((course) => ({
+          ...course,
+          name: '',
+        }))
+      : savedSchedule.scheduleData.courses,
+    lessons:
+      options.removeTeacherName || options.removeRoom
+        ? savedSchedule.scheduleData.lessons.map((lesson) => ({
+            ...lesson,
+            teacher: options.removeTeacherName ? '' : lesson.teacher,
+            room: options.removeRoom ? '' : lesson.room,
+          }))
+        : savedSchedule.scheduleData.lessons,
+    raw: savedSchedule.scheduleData.raw,
+  }
+
+  if (savedSchedule.scheduleData.raw.kind === 'wakeup') {
+    const wakeupRaw = savedSchedule.scheduleData.raw
+    scheduleData.raw = {
+      ...wakeupRaw,
+      timeSlots: options.removeBoundTimeSlots ? [] : wakeupRaw.timeSlots,
+      tableConfig: {
+        ...wakeupRaw.tableConfig,
+        timeTable: options.removeBoundTimeSlots ? 2 : wakeupRaw.tableConfig.timeTable,
+      },
+      courses: options.removeCourseName
+        ? wakeupRaw.courses.map((course) => ({
+            ...course,
+            courseName: '',
+          }))
+        : wakeupRaw.courses,
+      lessons:
+        options.removeTeacherName || options.removeRoom
+          ? wakeupRaw.lessons.map((lesson) => ({
+              ...lesson,
+              teacher: options.removeTeacherName ? '' : lesson.teacher,
+              room: options.removeRoom ? '' : lesson.room,
+            }))
+          : wakeupRaw.lessons,
+    }
+  }
+
+  return {
+    ...savedSchedule,
+    timeSlotPresetId: options.removeBoundTimeSlots ? 'builtIn' : savedSchedule.timeSlotPresetId,
+    scheduleData,
+  }
+}
+
 export function buildWakeupExportText(savedSchedule: SavedSchedule) {
   const wakeupRaw =
     savedSchedule.scheduleData.raw.kind === 'wakeup'
@@ -152,11 +268,28 @@ export function buildWakeupExportText(savedSchedule: SavedSchedule) {
 }
 
 export function buildQmsExportText(savedSchedule: SavedSchedule) {
+  const shouldWriteBuiltInTimeSlots = savedSchedule.timeSlotPresetId === 'builtIn'
   const payload: QmsExportPayload = {
     schema: 'qms',
-    version: 1,
+    version: 2,
     exportedAt: Date.now(),
-    schedule: savedSchedule,
+    schedule: {
+      name: savedSchedule.name,
+      source: savedSchedule.source,
+      themeId: savedSchedule.themeId,
+      semesterStartDate: savedSchedule.semesterStartDate,
+      createdAt: savedSchedule.createdAt,
+      timeSlotPresetId: savedSchedule.timeSlotPresetId,
+      scheduleData: {
+        version: savedSchedule.scheduleData.version,
+        source: savedSchedule.scheduleData.source,
+        importedAt: savedSchedule.scheduleData.importedAt,
+        table: savedSchedule.scheduleData.table,
+        ...(shouldWriteBuiltInTimeSlots ? { timeSlots: savedSchedule.scheduleData.timeSlots } : {}),
+        courses: savedSchedule.scheduleData.courses,
+        lessons: savedSchedule.scheduleData.lessons,
+      },
+    },
   }
 
   return JSON.stringify(payload, null, 2)

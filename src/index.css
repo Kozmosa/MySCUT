@@ -8,9 +8,12 @@ body,
 }
 
 :root {
+  --safe-top-inset: env(safe-area-inset-top);
   --android-system-bottom-inset: 0px;
   --safe-bottom-inset: max(env(safe-area-inset-bottom), var(--android-system-bottom-inset));
   --bottom-nav-height: calc(64px + var(--safe-bottom-inset));
+  --detail-header-top-gap: 12px;
+  --message-top-offset: calc(var(--safe-top-inset) + var(--detail-header-top-gap));
   --bg-page: #f5f6fa;
   --bg-surface: #ffffff;
   --bg-surface-alt: #f8faff;
@@ -48,6 +51,10 @@ body {
   font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
   background: var(--bg-page);
   color: var(--text-primary);
+}
+
+.ant-message {
+  top: var(--message-top-offset) !important;
 }
 
 .app-shell {
@@ -271,20 +278,20 @@ body {
 .schedule-weekday-header,
 .schedule-lesson-header,
 .schedule-cell {
-  padding: 2px;
+  padding: 1px;
 }
 
 .schedule-month-header,
 .schedule-weekday-header {
-  height: 42px;
-  font-size: 14px;
+  height: 38px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
 }
 
 .schedule-month-header,
 .schedule-lesson-header {
-  width: 48px;
+  width: 40px;
   text-align: center;
 }
 
@@ -299,14 +306,14 @@ body {
 }
 
 .schedule-weekday-date {
-  margin-top: 3px;
-  font-size: 11px;
+  margin-top: 2px;
+  font-size: 9px;
   color: var(--text-muted);
 }
 
 .schedule-lesson-header {
   height: 64px;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 500;
   color: var(--text-muted);
   text-align: center;
@@ -320,7 +327,7 @@ body {
 }
 
 .schedule-lesson-time {
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .schedule-cell {
@@ -338,10 +345,13 @@ body {
   height: 100%;
   border: none;
   border-radius: 10px;
-  padding: 6px;
+  padding: 11px 2px 2px 3px;
   position: relative;
   overflow: hidden;
   text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   cursor: pointer;
 }
 
@@ -359,23 +369,25 @@ body {
 .course-card-name {
   font-size: 11px;
   font-weight: 600;
+  letter-spacing: 1px;
 }
 
 .course-card-meta {
-  margin-top: 4px;
+  margin-top: 2px;
   font-size: 10px;
+  font-weight: 400;
   color: var(--course-text-secondary, #4f5563);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .course-card-more {
   position: absolute;
-  right: 6px;
-  bottom: 4px;
+  right: 3px;
+  bottom: 2px;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--course-text-badge, #3f4d67);
 }
 
@@ -403,6 +415,28 @@ body {
   margin: 8px 0 0;
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+.course-detail-toggle {
+  margin-top: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent-primary);
+  font-size: 13px;
+  text-align: left;
+}
+
+.course-detail-extra {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.course-detail-extra .course-detail-line {
+  margin-top: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .course-block--blue {
@@ -924,7 +958,7 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   margin: 0 -16px;
-  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+  padding: calc(var(--detail-header-top-gap) + var(--safe-top-inset)) 16px 12px;
   background: var(--overlay-glass);
   border-bottom: 1px solid transparent;
   backdrop-filter: blur(20px) saturate(155%);
@@ -992,6 +1026,12 @@ body {
 
 .schedule-settings-file-input {
   display: none;
+}
+
+@supports (-webkit-touch-callout: none) {
+  .schedule-semester-date-picker .ant-picker-input > input {
+    font-size: 16px;
+  }
 }
 
 .schedule-theme-selector {
@@ -1087,6 +1127,38 @@ body {
   font-size: 13px;
 }
 
+.schedule-export-sanitize-card {
+  margin-top: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-surface);
+}
+
+.schedule-export-sanitize-row {
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.schedule-export-sanitize-options {
+  border-top: 1px solid var(--border-soft);
+  padding: 4px 12px 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule-export-sanitize-option {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
 .schedule-pdf-error {
   margin: 8px 4px 0;
   font-size: 13px;
@@ -1110,4 +1182,34 @@ body {
   color: var(--text-secondary);
   font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
   white-space: pre;
+}
+
+.scut-jw-tip-card,
+.scut-jw-status-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  padding: 12px;
+}
+
+.scut-jw-tip-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scut-jw-tip-title,
+.scut-jw-tip-text {
+  margin: 0;
+}
+
+.scut-jw-tip-title {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.scut-jw-tip-text {
+  font-size: 13px;
+  color: var(--text-secondary);
 }

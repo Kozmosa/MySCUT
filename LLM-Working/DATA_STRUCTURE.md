@@ -14,7 +14,7 @@
 ```ts
 type ScheduleData = {
   version: 1
-  source: 'wakeup' | 'scutHtml'
+  source: 'wakeup' | 'scutHtml' | 'intersection'
   importedAt: number
   table: {
     id: number
@@ -51,6 +51,7 @@ type ScheduleData = {
 
 - `version`：结构版本号，当前为 `1`
 - `source`：数据来源标识，当前支持 `'wakeup' | 'scutHtml'`
+- `source='intersection'`：课表取交集计算生成的临时/可保存课表
 - `importedAt`：导入时间戳（毫秒）
 - `table/timeSlots/courses/lessons`：规范化后的业务字段
 - `raw`：按来源保留原始结构
@@ -157,7 +158,7 @@ type SavedSchedule = {
   scheduleData: ScheduleData
 }
 
-type TimeSlotPresetId = 'builtIn' | 'universityTown' | 'wushan' | 'international'
+type TimeSlotPresetId = 'builtIn' | 'universityTown' | 'wushan' | 'international' | 'union'
 
 type ScheduleLibrary = {
   version: 1
@@ -182,9 +183,53 @@ type ScheduleLibrary = {
 
 - `timeSlotPresetId = 'builtIn'`：使用课表自带 `timeSlots`
 - `timeSlotPresetId = 'universityTown' | 'wushan' | 'international'`：使用内置校区预设时间
+- `timeSlotPresetId = 'union'`：使用并集预设（五山/国际/大学城边界并集切分）
 - 该字段按课表条目保存，不是全局设置
 
-## 7. 渲染辅助结构
+## 7. QMS 导出结构（交换层）
+
+QMS 为导出/导入交换格式，当前主版本为 `v2`（保留 `v1` 导入兼容）。
+
+```ts
+type QmsExportV2 = {
+  schema: 'qms'
+  version: 2
+  exportedAt: number
+  schedule: {
+    name: string
+    source: 'wakeup' | 'scutHtml' | 'intersection'
+    themeId: string
+    semesterStartDate: string
+    createdAt: number
+    timeSlotPresetId: TimeSlotPresetId
+    scheduleData: {
+      version: 1
+      source: 'wakeup' | 'scutHtml' | 'intersection'
+      importedAt: number
+      table: ScheduleData['table']
+      timeSlots?: WakeupTimeSlot[]
+      courses: ScheduleCourse[]
+      lessons: ScheduleLesson[]
+    }
+  }
+}
+```
+
+说明：
+
+- `v2` 不再导出 `raw`。
+- `timeSlotPresetId === 'builtIn'` 时附带完整 `timeSlots`；其他预设只写预设 ID。
+- 导入 `v1/v2` 时都会执行时间表裁剪：命中相邻 `endTime` 相差 10 分钟后，丢弃该命中对及其后续节点。
+- 详细字段说明见：`LLM-Working/QMS_Schema.md`。
+
+### 7.1 压缩QMS（Clipboard 交换编码）
+
+- 压缩QMS不是新的 schema 版本，而是对 QMS 文本的编码层。
+- 编码：`base64(zstd(qmsJsonTextUtf8))`
+- 解码：`qmsJsonTextUtf8 = zstd^-1(base64^-1(compressedText))`
+- 仅影响剪贴板传输方式，不改变 QMS / ScheduleData 数据结构。
+
+## 8. 渲染辅助结构
 
 课表渲染使用 `WeekCellCourse[]`：
 
@@ -207,7 +252,7 @@ type WeekCellCourse = {
 - `currentWeek <= endWeek`
 - `(currentWeek - startWeek) % weekStep === 0`
 
-## 8. 课表配色方案结构
+## 9. 课表配色方案结构
 
 课表配色方案与课表数据本体解耦，独立存储于 `themePresets` 与 `themeStorage` 模块。
 
