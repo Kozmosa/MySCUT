@@ -7,6 +7,8 @@ import { writeReleaseNoteFile } from './notes.mjs'
 import { parseReleaseOptions } from './options.mjs'
 import { askText, askYesNo } from './prompt.mjs'
 import { extractRepoInfo } from './repo.mjs'
+import { buildR2PublicUrl, buildR2ReleaseObjectKey, uploadReleaseAssetToR2 } from './r2.mjs'
+import { loadR2Config } from './r2Config.mjs'
 import { run } from './shared.mjs'
 import { updatePackageVersion, updateVersionsJson, validateTargetVersion } from './versioning.mjs'
 
@@ -35,6 +37,37 @@ async function main() {
   console.log(`Starting release process for version ${nextVersion}`)
   console.log(`Target platforms: ${targetPlatforms.join(', ')}`)
 
+  const isR2Release = releaseOptions.assetSource === 'r2'
+  const r2Config = isR2Release ? loadR2Config() : null
+  const plannedR2AssetUrls = {}
+
+  if (isR2Release && r2Config) {
+    console.log('R2 asset source enabled, release assets will be uploaded to Cloudflare R2.')
+    if (releaseOptions.platforms.android) {
+      const objectKey = buildR2ReleaseObjectKey({
+        keyPrefix: r2Config.keyPrefix,
+        version: nextVersion,
+        fileName: `qmm-v${nextVersion}.apk`,
+      })
+      plannedR2AssetUrls.apk = buildR2PublicUrl({
+        publicBaseUrl: r2Config.publicBaseUrl,
+        objectKey,
+      })
+    }
+
+    if (releaseOptions.platforms.ios) {
+      const objectKey = buildR2ReleaseObjectKey({
+        keyPrefix: r2Config.keyPrefix,
+        version: nextVersion,
+        fileName: `qmm-v${nextVersion}.ipa`,
+      })
+      plannedR2AssetUrls.ipa = buildR2PublicUrl({
+        publicBaseUrl: r2Config.publicBaseUrl,
+        objectKey,
+      })
+    }
+  }
+
   console.log('Updating submodules to latest remote commits...')
   run('git submodule update --init --recursive', rootDir)
   run('git submodule update --remote --recursive', rootDir)
@@ -50,6 +83,7 @@ async function main() {
     repo,
     hasAndroidAsset: releaseOptions.platforms.android,
     hasIosAsset: releaseOptions.platforms.ios,
+    r2AssetUrls: plannedR2AssetUrls,
   })
   console.log('Updated versions.json')
 
@@ -99,6 +133,29 @@ async function main() {
 
   if (preparedAssets.length === 0) {
     throw new Error('No release assets prepared. Please select at least one platform.')
+  }
+
+  if (isR2Release && r2Config) {
+    console.log('Uploading release assets to Cloudflare R2...')
+    for (const assetPath of preparedAssets) {
+      const fileName = assetPath.split(/[/\\]/).pop()
+      if (!fileName) {
+        throw new Error(`Unable to resolve asset file name from path: ${assetPath}`)
+      }
+
+      const objectKey = buildR2ReleaseObjectKey({
+        keyPrefix: r2Config.keyPrefix,
+        version: nextVersion,
+        fileName,
+      })
+
+      const uploadedUrl = await uploadReleaseAssetToR2({
+        localFilePath: assetPath,
+        objectKey,
+        r2Config,
+      })
+      console.log(`Uploaded ${fileName} to R2: ${uploadedUrl}`)
+    }
   }
 
   const noteFilePath = writeReleaseNoteFile({

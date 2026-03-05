@@ -72,7 +72,26 @@ export function updatePackageVersion(packageJson, nextVersion) {
   writeJson(packageJsonPath, packageJson)
 }
 
-export function updateVersionsJson({ version, tag, owner, repo, hasAndroidAsset, hasIosAsset }) {
+function toAssetEntry(source, url) {
+  if (!url) {
+    return null
+  }
+
+  return {
+    source,
+    url,
+  }
+}
+
+export function updateVersionsJson({
+  version,
+  tag,
+  owner,
+  repo,
+  hasAndroidAsset,
+  hasIosAsset,
+  r2AssetUrls,
+}) {
   const baseDownloadUrl = `https://github.com/${owner}/${repo}/releases/download/${tag}`
   const apkName = `qmm-v${version}.apk`
   const ipaName = `qmm-v${version}.ipa`
@@ -84,11 +103,25 @@ export function updateVersionsJson({ version, tag, owner, repo, hasAndroidAsset,
   }
 
   if (hasAndroidAsset) {
-    assets.apk = `${baseDownloadUrl}/${apkName}`
+    const apkEntries = [
+      toAssetEntry('r2', r2AssetUrls?.apk || ''),
+      toAssetEntry('github', `${baseDownloadUrl}/${apkName}`),
+    ].filter(Boolean)
+
+    if (apkEntries.length > 0) {
+      assets.apk = apkEntries
+    }
   }
 
   if (hasIosAsset) {
-    assets.ipa = `${baseDownloadUrl}/${ipaName}`
+    const ipaEntries = [
+      toAssetEntry('r2', r2AssetUrls?.ipa || ''),
+      toAssetEntry('github', `${baseDownloadUrl}/${ipaName}`),
+    ].filter(Boolean)
+
+    if (ipaEntries.length > 0) {
+      assets.ipa = ipaEntries
+    }
   }
 
   const nextVersionData = {

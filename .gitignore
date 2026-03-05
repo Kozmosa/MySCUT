@@ -31,6 +31,7 @@ pnpm-debug.log*
 
 # Local secrets
 GITHUB_TOKEN.SEC
+R2_ENV
 
 # Local test artifacts
 LLM-Working/test.pdf

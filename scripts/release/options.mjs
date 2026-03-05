@@ -31,6 +31,7 @@ export function parseReleaseOptions() {
 
   let version = ''
   let note = ''
+  let assetSource = ''
   let android = false
   let ios = false
   let hasPlatformFlag = false
@@ -115,6 +116,31 @@ export function parseReleaseOptions() {
 
     if (arg.startsWith('--note=')) {
       note = arg.slice('--note='.length)
+      continue
+    }
+
+    if (arg === '--asset-source') {
+      const next = rawArgs[index + 1]
+      if (!next) {
+        throw new Error('Missing value for --asset-source. Example: --asset-source r2')
+      }
+
+      if (next !== 'r2') {
+        throw new Error(`Unsupported asset source "${next}". Currently only "r2" is supported.`)
+      }
+
+      assetSource = next
+      index += 1
+      continue
+    }
+
+    if (arg.startsWith('--asset-source=')) {
+      const value = arg.slice('--asset-source='.length)
+      if (value !== 'r2') {
+        throw new Error(`Unsupported asset source "${value}". Currently only "r2" is supported.`)
+      }
+
+      assetSource = value
     }
   }
 
@@ -129,6 +155,7 @@ export function parseReleaseOptions() {
   return {
     version,
     note,
+    assetSource,
     platforms: {
       android,
       ios,
