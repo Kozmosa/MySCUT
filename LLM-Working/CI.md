@@ -6,7 +6,7 @@
 
 ## 当前发布链路
 
-- 本地执行 `npm run release <version> [平台参数] [--note "..."]`。
+- 本地执行 `npm run release <version> [平台参数] [--note "..."] [--asset-source r2]`。
 - `scripts/release.mjs` 作为薄入口，实际由 `scripts/release/main.mjs` 编排：
   - `options.mjs`：发布参数解析
   - `versioning.mjs`：版本合法性校验与 `versions.json` 更新
@@ -24,6 +24,9 @@
 - 带 Release Note（支持 Markdown）：
   - `npm run release 0.3.2 --android --note "- New UI"`
   - `npm run release 0.3.2 --android --ios --note "## 更新\n- New UI\n- Bug fixes"`
+- 使用 R2 作为安装包源：
+  - `npm run release 0.3.2 --android --asset-source r2`
+  - `npm run release 0.3.2 --android --ios --asset-source r2 --note "## 更新\n- 多源下载"`
 
 ## 平台参数规则
 
@@ -42,6 +45,28 @@
 - 未传 `--note` 时：
   - CI 使用 `generate_release_notes: true` 自动生成发布说明。
 
+## 产物源参数规则
+
+- `--asset-source r2`：
+  - 发版脚本会读取 R2 配置并上传 APK/IPA 到对象存储。
+  - `versions.json` 的 `assets.apk` / `assets.ipa` 写为数组结构，包含 `r2` 与 `github` 双源。
+- 未传 `--asset-source`：
+  - 默认仅写 `github` 源（同样使用数组结构，便于统一消费）。
+
+## R2 配置读取规则
+
+- 脚本优先读取仓库根目录 `R2_ENV`；若不存在对应字段，再回退到系统环境变量。
+- `R2_ENV` 只用于本地/CI 运行，不允许提交到版本库（已在 `.gitignore` 中忽略）。
+- 必需配置项：
+  - `R2_ACCOUNT_ID`
+  - `R2_BUCKET`
+  - `R2_ACCESS_KEY_ID`
+  - `R2_SECRET_ACCESS_KEY`
+  - `R2_PUBLIC_BASE_URL`
+- 可选配置项：
+  - `R2_KEY_PREFIX`（默认 `releases`）
+  - `R2_S3_ENDPOINT`（默认 `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`）
+
 ## 构建与提交流程（已解耦）
 
 - 先执行一次通用构建：`npm run build:full`。
@@ -58,6 +83,7 @@
 - `versions.json` 的 `assets` 字段：
   - 始终包含 `versions`。
   - 仅在选中对应平台时写入 `apk` / `ipa`。
+  - `apk` / `ipa` 使用来源列表结构：`[{"source":"r2|github","url":"..."}]`。
 
 ## GitHub Actions 工作流行为
 
@@ -83,3 +109,5 @@
 - 默认 Android 发布：`npm run release 0.3.3`
 - 双平台并写说明：
   - `npm run release 0.3.3 --android --ios --note "## Release 0.3.3\n- New UI\n- SCUT import improvements"`
+- 双平台 + R2：
+  - `npm run release 0.3.3 --android --ios --asset-source r2 --note "## Release 0.3.3\n- Multi-source assets"`
