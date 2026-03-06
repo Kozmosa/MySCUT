@@ -7,10 +7,11 @@ const currentDir = dirname(fileURLToPath(import.meta.url))
 export const rootDir = resolve(currentDir, '..')
 export const docsProjectDir = resolve(rootDir, 'external/survive-in-scut')
 
-export function run(command, cwd = rootDir) {
+export function run(command, cwd = rootDir, envOverrides = undefined) {
   execSync(command, {
     cwd,
     stdio: 'inherit',
+    env: envOverrides ? { ...process.env, ...envOverrides } : process.env,
   })
 }
 

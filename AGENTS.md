@@ -39,8 +39,13 @@ It reflects the current repository state and local conventions.
 
 ### Build
 - `yarn build`
-- Executes `tsc -b && vite build`.
-- This is the main validation gate right now (typecheck + production bundle).
+- Executes multi-platform build aggregation (`web/android/ios/ohos`) and tolerates missing toolchains per target.
+- For deterministic web-only validation, use `yarn build:web`.
+- Platform outputs:
+  - `dist/web`
+  - `dist/android`
+  - `dist/ios`
+  - `dist/ohos`
 
 ### Preview
 - `yarn preview`
@@ -51,15 +56,13 @@ It reflects the current repository state and local conventions.
 - If linting is requested, add ESLint (and scripts/config) first.
 
 ### Test
-- No test runner is configured yet.
-- Do not assume `yarn test` exists.
+- Vitest is configured.
+- Default command: `yarn test`
 
 ### Running a Single Test (Important)
-- Single-test execution is currently unavailable because no test framework is installed.
-- If Vitest is added later, use patterns like:
+- Single-test execution uses Vitest patterns:
   - `yarn vitest path/to/file.test.ts`
   - `yarn vitest path/to/file.test.ts -t "test name"`
-- Until test tooling exists in `package.json`, treat the above as future guidance.
 
 ## 4) TypeScript and Compiler Constraints
 

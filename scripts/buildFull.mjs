@@ -1,65 +1,39 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
-import { extname, resolve } from 'node:path'
-import {
-  docsProjectDir,
-  ensureManualSubmodule,
-  getPinnedManualCommit,
-  pullLatestManual,
-  restoreManualCommit,
-  rootDir,
-  run,
-} from './manualSubmoduleUtils.mjs'
+import { rootDir, run } from './manualSubmoduleUtils.mjs'
 
-const docsPlatformDistDir = resolve(docsProjectDir, 'vue-platform-dist')
-const appDocsDistDir = resolve(rootDir, 'dist/docs')
-const docsNodeModulesDir = resolve(docsProjectDir, 'node_modules')
-const docsIgnoredExtensions = new Set(['.apk', '.ipa', '.map'])
+const tasks = [
+  { name: 'web', command: 'npm run build:web' },
+  { name: 'android', command: 'npm run build:android' },
+  { name: 'ios', command: 'npm run build:ios' },
+  { name: 'ohos', command: 'npm run build:ohos-web' },
+]
 
-function shouldCopyDocsFile(filePath) {
-  return !docsIgnoredExtensions.has(extname(filePath).toLowerCase())
-}
+const results = []
 
-function copyDocsDist() {
-  if (!existsSync(docsPlatformDistDir)) {
-    throw new Error(`Docs build output not found: ${docsPlatformDistDir}`)
-  }
-
-  rmSync(appDocsDistDir, { recursive: true, force: true })
-  mkdirSync(appDocsDistDir, { recursive: true })
-
-  const entries = readdirSync(docsPlatformDistDir)
-  for (const entry of entries) {
-    cpSync(resolve(docsPlatformDistDir, entry), resolve(appDocsDistDir, entry), {
-      recursive: true,
-      filter: (srcPath) => shouldCopyDocsFile(srcPath),
+for (const task of tasks) {
+  console.log(`\n=== Building ${task.name} ===`)
+  try {
+    run(task.command, rootDir)
+    results.push({
+      name: task.name,
+      status: 'ok',
+      detail: '',
     })
+  } catch (error) {
+    const message = error instanceof Error && error.message ? error.message : 'Unknown build failure'
+    results.push({
+      name: task.name,
+      status: 'failed',
+      detail: message,
+    })
+    console.warn(`Build failed for ${task.name}: ${message}`)
   }
 }
 
-function ensureDocsDependencies() {
-  if (existsSync(docsNodeModulesDir)) {
-    return
+console.log('\n=== Build Summary ===')
+for (const result of results) {
+  if (result.status === 'ok') {
+    console.log(`- ${result.name}: ok`)
+  } else {
+    console.log(`- ${result.name}: failed (${result.detail})`)
   }
-
-  run('npm install --no-package-lock', docsProjectDir)
-}
-
-function cleanupDocsArtifacts() {
-  rmSync(docsPlatformDistDir, { recursive: true, force: true })
-}
-
-const pinnedManualCommit = getPinnedManualCommit()
-
-ensureManualSubmodule()
-pullLatestManual()
-
-try {
-  run('npm run build:todo-snapshot', rootDir)
-  run('tsc -b && vite build', rootDir)
-  ensureDocsDependencies()
-  run('npm run docs:build:platform', docsProjectDir)
-  copyDocsDist()
-  cleanupDocsArtifacts()
-} finally {
-  restoreManualCommit(pinnedManualCommit)
 }

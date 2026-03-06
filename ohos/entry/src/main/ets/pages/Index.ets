@@ -8,7 +8,7 @@ struct Index {
   build() {
     Column() {
       Web({
-        src: 'https://manual.xn--xkrsa0ti6rf4cf98d.com/',
+        src: 'resource://rawfile/app/index.html',
         controller: this.webController
       })
         .javaScriptAccess(true)

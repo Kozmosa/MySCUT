@@ -116,7 +116,11 @@
 
 - 安装依赖：`yarn install`
 - 本地开发：`yarn dev`
-- 生产构建：`yarn build`
+- 生产构建（全平台容错汇总）：`yarn build`
+- Web 构建（含 docs，输出到 `dist/web`）：`yarn build:web`
+- Android Web 构建并同步原生工程：`yarn build:android`（输出到 `dist/android`）
+- iOS Web 构建并同步原生工程：`yarn build:ios`（输出到 `dist/ios`）
+- OHOS Web 构建并同步到 `rawfile`：`yarn build:ohos-web`（输出到 `dist/ohos`）
 - 本地预览：`yarn preview`
 
 ## Git 提交信息约定

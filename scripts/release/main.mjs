@@ -95,7 +95,7 @@ async function main() {
   console.log('Updated versions.json')
 
   console.log('Running shared web build pipeline...')
-  run('npm run build:full', rootDir)
+  run('npm run build:web', rootDir)
 
   console.log('Syncing native versions...')
   run('node scripts/syncNativeVersion.mjs', rootDir)

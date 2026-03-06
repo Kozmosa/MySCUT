@@ -6,6 +6,7 @@ import packageJson from './package.json'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const shouldBundlePdfLocalCMap = env.PDFJS_LOCAL_CMAP === '1' || env.PDFJS_LOCAL_CMAP === 'true'
+  const outDir = env.VITE_OUT_DIR || 'dist/web'
 
   const plugins = [react()]
 
@@ -28,6 +29,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins,
+    build: {
+      outDir,
+    },
     define: {
       __APP_VERSION__: JSON.stringify(packageJson.version),
       __PDF_LOCAL_CMAP_ENABLED__: JSON.stringify(shouldBundlePdfLocalCMap),

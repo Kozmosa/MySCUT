@@ -2,5 +2,6 @@
 /oh_modules
 /.preview
 /build
+src/main/resources/rawfile/app
 /.cxx
 /.test
