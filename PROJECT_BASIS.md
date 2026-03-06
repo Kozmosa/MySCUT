@@ -109,6 +109,8 @@
 - Vite（构建器）
   - llms: `https://vite.dev/llms.txt`
   - llms-full: `https://vite.dev/llms-full.txt`
+- HarmonyOS（OpenHarmony / ArkTS）
+  - reference: `https://developer.huawei.com/consumer/cn/doc/`
 
 ## 开发与验证命令
 
