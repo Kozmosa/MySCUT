@@ -120,8 +120,29 @@
 - Web 构建（含 docs，输出到 `dist/web`）：`yarn build:web`
 - Android Web 构建并同步原生工程：`yarn build:android`（输出到 `dist/android`）
 - iOS Web 构建并同步原生工程：`yarn build:ios`（输出到 `dist/ios`）
-- OHOS Web 构建并同步到 `rawfile`：`yarn build:ohos-web`（输出到 `dist/ohos`）
+- OHOS Web 构建并同步到 `resfile/apps/<bundleName>/www`：`yarn build:ohos-web`（输出到 `dist/ohos`）
+- 查看本地 OHOS 构建产物（`.hap/.app`）：`yarn build:ohos-artifacts`
 - 本地预览：`yarn preview`
+
+## OHOS 调试约定（本地）
+
+- 目标：优先用命令行抓取 OHOS WebView 精确日志，避免只看 IDE 控制台噪音日志。
+- 不在仓库标准文档中记录开发机绝对路径；本地环境变量与 SDK 路径通过本地脚本管理。
+- 统一入口：在仓库本地执行 `scripts/local/ohos-dev.ps1` 初始化 OHOS CLI 环境（仅当前会话生效）。
+- 可选辅助：`scripts/local/ohos-debug.ps1` 作为常用日志抓取封装。
+- `scripts/local/` 目录用于本地调试脚本，不纳入版本控制。
+
+- 推荐日志抓取方式（关注 WebView 加载链路）：
+
+```powershell
+hdc shell hilog | Select-String -Pattern "ARKWEB-CONSOLE|OnLoadError|OnRequestError|ResourceURLLoader|NWebHandlerDelegate"
+```
+
+- 白屏问题定位优先级：
+  - 第一优先：`OnLoadError` / `OnRequestError` 的完整行（必须包含 URL 与 errorCode）。
+  - 第二优先：`ARKWEB-CONSOLE` 的 JS/CSS 加载或运行时报错。
+  - 第三优先：`ResourceURLLoader` 的资源命中与状态码。
+- 运行态排查结论必须基于上述关键日志，不使用系统服务噪音日志（如 thermal / sceneboard / appspawn）直接下结论。
 
 ## Git 提交信息约定
 
