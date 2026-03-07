@@ -45,3 +45,6 @@ LLM-Working/*.json
 LLM-Working/*.html
 LLM-Working/*.htm
 LLM-Working/*.mhtml
+
+# Local developer scripts
+scripts/local/

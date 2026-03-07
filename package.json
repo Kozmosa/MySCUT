@@ -14,6 +14,7 @@
     "build:android": "node scripts/buildAndroid.mjs",
     "build:ios": "node scripts/buildIos.mjs",
     "build:ohos-web": "node scripts/buildOhosWeb.mjs",
+    "build:ohos-artifacts": "node scripts/printOhosArtifacts.mjs",
     "preview": "vite preview",
     "test": "vitest run"
   },

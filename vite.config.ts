@@ -6,7 +6,9 @@ import packageJson from './package.json'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const shouldBundlePdfLocalCMap = env.PDFJS_LOCAL_CMAP === '1' || env.PDFJS_LOCAL_CMAP === 'true'
+  const targetPlatform = env.VITE_TARGET_PLATFORM || 'web'
   const outDir = env.VITE_OUT_DIR || 'dist/web'
+  const base = targetPlatform === 'ohos' ? './' : '/'
 
   const plugins = [react()]
 
@@ -28,6 +30,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    base,
     plugins,
     build: {
       outDir,

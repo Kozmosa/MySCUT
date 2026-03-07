@@ -3,5 +3,6 @@
 /.preview
 /build
 src/main/resources/rawfile/app
+src/main/resources/resfile/apps
 /.cxx
 /.test
