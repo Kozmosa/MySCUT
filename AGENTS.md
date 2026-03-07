@@ -41,14 +41,17 @@ It reflects the current repository state and local conventions.
 - `yarn build`
 - Executes multi-platform build aggregation (`web/android/ios/ohos`) and tolerates missing toolchains per target.
 - For deterministic web-only validation, use `yarn build:web`.
+- For PWA web publishing output, use `yarn build:pwa`.
 - Platform outputs:
   - `dist/web`
+  - `dist/pwa`
   - `dist/android`
   - `dist/ios`
   - `dist/ohos`
 
 ### Preview
 - `yarn preview`
+- `yarn preview:pwa`
 
 ### Lint
 - No lint tooling is configured yet.

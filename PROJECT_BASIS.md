@@ -118,11 +118,13 @@
 - 本地开发：`yarn dev`
 - 生产构建（全平台容错汇总）：`yarn build`
 - Web 构建（含 docs，输出到 `dist/web`）：`yarn build:web`
+- PWA 构建（纯 Web 发布产物，输出到 `dist/pwa`）：`yarn build:pwa`
 - Android Web 构建并同步原生工程：`yarn build:android`（输出到 `dist/android`）
 - iOS Web 构建并同步原生工程：`yarn build:ios`（输出到 `dist/ios`）
 - OHOS Web 构建并同步到 `resfile/apps/<bundleName>/www`：`yarn build:ohos-web`（输出到 `dist/ohos`）
 - 查看本地 OHOS 构建产物（`.hap/.app`）：`yarn build:ohos-artifacts`
 - 本地预览：`yarn preview`
+- PWA 本地预览（先构建再以 `dist/pwa` 启动预览服务）：`yarn preview:pwa`
 
 ## OHOS 调试约定（本地）
 
