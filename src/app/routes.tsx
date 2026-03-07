@@ -1,6 +1,8 @@
 import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
+const isWebPlatform = import.meta.env.VITE_TARGET_PLATFORM === 'web'
+
 const CoursesPage = lazy(async () => {
   const module = await import('../features/courses/CoursesPage')
   return { default: module.default }
@@ -36,10 +38,12 @@ const ScutPdfImportPage = lazy(async () => {
   return { default: module.default }
 })
 
-const ScutJwImportPage = lazy(async () => {
-  const module = await import('../features/mine/pages/ScutJwImportPage')
-  return { default: module.default }
-})
+const ScutJwImportPage = isWebPlatform
+  ? null
+  : lazy(async () => {
+    const module = await import('../features/mine/pages/ScutJwImportPage')
+    return { default: module.default }
+  })
 
 const MineDetailPage = lazy(async () => {
   const module = await import('../features/mine/MineDetailPage')
@@ -59,7 +63,10 @@ function AppRoutes() {
         <Route path='/mine/schedule-intersection' element={<ScheduleIntersectionPage />} />
         <Route path='/mine/ai-settings' element={<AiSettingsPage />} />
         <Route path='/mine/import-scut-pdf' element={<ScutPdfImportPage />} />
-        <Route path='/mine/import-scut-jw' element={<ScutJwImportPage />} />
+        <Route
+          path='/mine/import-scut-jw'
+          element={isWebPlatform || ScutJwImportPage === null ? <Navigate to='/mine/schedule-settings' replace /> : <ScutJwImportPage />}
+        />
         <Route path='/mine/global-settings' element={<MineDetailPage title='全局设置' />} />
         <Route path='/mine/faq' element={<MineDetailPage title='常见问答' />} />
         <Route path='/mine/more' element={<MineDetailPage title='更多' />} />

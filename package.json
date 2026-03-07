@@ -10,12 +10,14 @@
     "release": "node scripts/release.mjs",
     "build": "npm run build:full",
     "build:web": "node scripts/buildApp.mjs",
+    "build:pwa": "node scripts/buildPwa.mjs",
     "build:full": "node scripts/buildFull.mjs",
     "build:android": "node scripts/buildAndroid.mjs",
     "build:ios": "node scripts/buildIos.mjs",
     "build:ohos-web": "node scripts/buildOhosWeb.mjs",
     "build:ohos-artifacts": "node scripts/printOhosArtifacts.mjs",
     "preview": "vite preview",
+    "preview:pwa": "node scripts/previewPwa.mjs",
     "test": "vitest run"
   },
   "dependencies": {
@@ -42,6 +44,7 @@
     "typescript": "~5.6.2",
     "vitest": "^2.1.8",
     "vite": "^5.4.10",
+    "vite-plugin-pwa": "^0.20.5",
     "vite-plugin-static-copy": "^3.2.0"
   }
 }
