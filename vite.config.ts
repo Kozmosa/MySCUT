@@ -38,7 +38,7 @@ export default defineConfig(({ mode }) => {
         injectRegister: false,
         manifest: false,
         workbox: {
-          globIgnores: ['**/docs/**'],
+          globIgnores: ['**/docs/**', '**/mermaid.min.js'],
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [/^\/docs\//],
           runtimeCaching: [

@@ -62,9 +62,12 @@ try {
     VITE_TARGET_PLATFORM: viteTargetPlatform,
   })
   ensureDocsDependencies()
+  run('npm install --no-save --no-package-lock vitepress', docsProjectDir)
   run('npm run docs:build:platform', docsProjectDir)
   copyDocsDist()
   cleanupDocsArtifacts()
 } finally {
+  run('git checkout -- .', docsProjectDir)
+  run('git clean -fd', docsProjectDir)
   restoreManualCommit(pinnedManualCommit)
 }
