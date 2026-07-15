@@ -52,7 +52,7 @@
 
 - 主要语言：TypeScript（React TSX）
 - 运行时与构建：Vite
-- 包管理：Yarn
+- 包管理：npm（已提交 `package-lock.json` 保证确定性安装）
 - UI 组件库：Ant Design 5
 
 ### TypeScript 约束（已落地）
@@ -114,7 +114,7 @@
 
 ## 开发与验证命令
 
-- 安装依赖：`yarn install`
+- 安装依赖：`npm install`（使用已提交的 `package-lock.json`）
 - 本地开发：`yarn dev`
 - 生产构建（全平台容错汇总）：`yarn build`
 - Web 构建（含 docs，输出到 `dist/web`）：`yarn build:web`
