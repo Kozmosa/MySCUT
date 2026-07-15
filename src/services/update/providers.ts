@@ -67,7 +67,24 @@ const UPDATE_LINK_PROVIDERS: Record<UpdateLinkProviderId, UpdateLinkProvider> = 
   },
 }
 
-export const DEFAULT_UPDATE_PROVIDER_ORDER: UpdateLinkProviderId[] = ['fastgit', 'jsdelivr', 'unpkg', 'github']
+const ALLOWED_PROVIDER_IDS = new Set<UpdateLinkProviderId>(['fastgit', 'jsdelivr', 'unpkg', 'github', 'raw'])
+
+function resolveDefaultProviderOrder(): UpdateLinkProviderId[] {
+  const envOrder = import.meta.env.VITE_UPDATE_PROVIDER_ORDER
+  if (typeof envOrder === 'string' && envOrder.trim()) {
+    const parsed = envOrder
+      .split(',')
+      .map((s) => s.trim() as UpdateLinkProviderId)
+      .filter((id): id is UpdateLinkProviderId => ALLOWED_PROVIDER_IDS.has(id))
+    if (parsed.length > 0) {
+      return parsed
+    }
+  }
+
+  return ['fastgit', 'jsdelivr', 'unpkg', 'github']
+}
+
+export const DEFAULT_UPDATE_PROVIDER_ORDER: UpdateLinkProviderId[] = resolveDefaultProviderOrder()
 
 export function getUpdateLinkProvider(providerId: UpdateLinkProviderId) {
   return UPDATE_LINK_PROVIDERS[providerId]

@@ -6,6 +6,7 @@ import {
 } from './providers'
 
 const REMOTE_VERSION_MANIFEST_URL =
+  import.meta.env.VITE_UPDATE_MANIFEST_URL ??
   'https://raw.githubusercontent.com/Kozmosa/survive-in-scut/refs/heads/main/docs/.vuepress/public/root-assets/versions.json'
 
 type RemoteVersionAssets = {

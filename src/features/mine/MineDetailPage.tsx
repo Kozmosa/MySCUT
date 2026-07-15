@@ -10,7 +10,7 @@ import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../core/
 import { GLOBAL_THEME_FAMILY_OPTIONS } from '../../core/theme/globalThemePresets'
 import { APP_TODO_ITEMS, MANUAL_TODO_ITEMS } from '../../generated/todoSnapshot'
 import { useGlobalTheme } from '../../platform/web/theme/GlobalThemeProvider'
-import { checkForAppUpdate } from '../../services/update/checkForUpdate'
+import { checkForAppUpdate } from '../../services/update'
 
 type MineDetailPageProps = {
   title: string
