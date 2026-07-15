@@ -38,6 +38,11 @@ R2_ENV
 # Local test artifacts
 LLM-Working/test.pdf
 
+# Local test schedule files (may contain real personal schedule data)
+*.wakeup_schedule
+LLM-Working/test.*
+LLM-Working/*.wakeup_schedule
+
 # Local session logs
 session-ses_*.md
 
@@ -50,3 +55,6 @@ LLM-Working/*.mhtml
 
 # Local developer scripts
 scripts/local/
+
+# Git filter-branch temporary files
+.git-rewrite/

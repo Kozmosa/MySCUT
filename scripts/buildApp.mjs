@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { extname, resolve } from 'node:path'
 import {
@@ -51,8 +52,18 @@ function cleanupDocsArtifacts() {
 
 const pinnedManualCommit = getPinnedManualCommit()
 
-ensureManualSubmodule()
-pullLatestManual()
+// Submodule operations may fail offline; the app build itself does not
+// depend on them — only the docs copy step does.
+try {
+  ensureManualSubmodule()
+} catch {
+  console.warn('[buildApp]  子模块检出失败，跳过（不影响 App 本体）')
+}
+try {
+  pullLatestManual()
+} catch {
+  console.warn('[buildApp]  子模块拉取失败，使用已检出版本（不影响 App 本体）')
+}
 
 try {
   const viteTargetPlatform = process.env.VITE_TARGET_PLATFORM || 'web'
@@ -67,7 +78,7 @@ try {
   copyDocsDist()
   cleanupDocsArtifacts()
 } finally {
-  run('git checkout -- .', docsProjectDir)
-  run('git clean -fd', docsProjectDir)
+  try { run('git checkout -- .', docsProjectDir) } catch { /* submodule not available */ }
+  try { run('git clean -fd', docsProjectDir) } catch { /* submodule not available */ }
   restoreManualCommit(pinnedManualCommit)
 }

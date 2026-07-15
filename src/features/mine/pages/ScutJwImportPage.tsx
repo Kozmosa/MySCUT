@@ -10,7 +10,22 @@ import { saveScheduleDataWithOptions } from '../../../core/schedule/storage'
 import { getScheduleThemePreset } from '../../../core/schedule/themeStorage'
 import { getSemesterStartDate, saveSemesterStartDate } from '../../../core/scheduleSettings'
 
-const SCUT_JW_URL = 'https://xsjw2018.jw.scut.edu.cn/'
+// Override with localStorage key 'scutJwMockUrl' for testing against mock server
+function getScutJwBaseUrl(): string {
+  try {
+    const override = localStorage.getItem('scutJwMockUrl')
+    if (override) {
+      console.log('[ScutJwImport] Using mock URL:', override)
+      return override
+    }
+  } catch {
+    // localStorage may not be available
+  }
+  // Default to mock server during testing — AVD uses 10.0.2.2 for host.
+  // Restore real URL before release:
+  // return 'https://xsjw2018.jw.scut.edu.cn/'
+  return 'http://10.0.2.2:8080/'
+}
 
 function getCookieHeader(cookies: Record<string, string>) {
   return Object.entries(cookies)
@@ -64,6 +79,7 @@ function ScutJwImportPage() {
           return
         }
 
+        console.log('[ScutJwImport] InAppBrowser closed by user')
         setIsBrowserClosed(true)
       })
 
@@ -72,6 +88,7 @@ function ScutJwImportPage() {
           return
         }
 
+        console.log('[ScutJwImport] Navigated to:', url)
         setLastNavigatedUrl(url)
       })
 
@@ -106,8 +123,10 @@ function ScutJwImportPage() {
     setIsBrowserClosed(false)
 
     try {
+      const targetUrl = getScutJwBaseUrl()
+      console.log('[ScutJwImport] Opening InAppBrowser to:', targetUrl)
       await InAppBrowser.openInWebView({
-        url: SCUT_JW_URL,
+        url: targetUrl,
         options: {
           ...DefaultWebViewOptions,
           showURL: true,
@@ -120,8 +139,10 @@ function ScutJwImportPage() {
           },
         },
       })
+      console.log('[ScutJwImport] InAppBrowser closed')
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '无法打开教务系统页面'
+      console.error('[ScutJwImport] Failed to open browser:', error)
       messageApi.error(errorMessage)
     } finally {
       setIsOpeningBrowser(false)
@@ -139,30 +160,71 @@ function ScutJwImportPage() {
       return
     }
 
+    console.log('[ScutJwImport] ====== 开始导入 ======')
+    console.log('[ScutJwImport] 当前页面 URL:', lastNavigatedUrl)
     setIsImporting(true)
 
     try {
+      console.log('[ScutJwImport] 步骤1/6: 从', lastNavigatedUrl, '获取 Cookies')
       const cookies = await CapacitorCookies.getCookies({ url: lastNavigatedUrl })
+      console.log('[ScutJwImport] Cookies 获取结果:', JSON.stringify(cookies))
       const cookieHeader = getCookieHeader(cookies)
+      console.log('[ScutJwImport] Cookie Header:', cookieHeader || '(无)')
+
+      console.log('[ScutJwImport] 步骤2/6: 请求页面 HTML')
       const response = await CapacitorHttp.get({
         url: lastNavigatedUrl,
         headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
         responseType: 'text',
       })
+      console.log('[ScutJwImport] HTTP 响应状态:', response.status)
+      console.log('[ScutJwImport] HTTP 响应头:', JSON.stringify(response.headers))
 
       if (response.status >= 400) {
         throw new Error(`教务系统页面请求失败（${response.status}）`)
       }
 
       const htmlText = toTextResponseData(response.data)
+      console.log('[ScutJwImport] 步骤3/6: HTML 获取成功, 长度:', htmlText.length, '字符')
+      console.log('[ScutJwImport] HTML 前 200 字符:', htmlText.substring(0, 200).replace(/\n/g, '\\n'))
+      console.log('[ScutJwImport] HTML 后 200 字符:', htmlText.substring(Math.max(0, htmlText.length - 200)).replace(/\n/g, '\\n'))
+
       const fallbackSemesterStartDate = getSemesterStartDate()
-      const scheduleData = parseScutScheduleHtml(htmlText, {
-        fallbackSemesterStartDate,
+      console.log('[ScutJwImport] fallbackSemesterStartDate:', fallbackSemesterStartDate)
+
+      console.log('[ScutJwImport] 步骤4/6: 解析课表 HTML')
+      let scheduleData
+      try {
+        scheduleData = parseScutScheduleHtml(htmlText, {
+          fallbackSemesterStartDate,
+        })
+      } catch (parseError) {
+        console.error('[ScutJwImport] 解析失败:', parseError)
+        throw parseError
+      }
+      console.log('[ScutJwImport] 解析成功:')
+      console.log('[ScutJwImport]   - 课程数量:', scheduleData.courses.length)
+      console.log('[ScutJwImport]   - 课程列表:', scheduleData.courses.map((c) => c.name).join(', '))
+      console.log('[ScutJwImport]   - 课程节数:', scheduleData.lessons.length)
+      console.log('[ScutJwImport]   - 课表名称:', scheduleData.table.name)
+      console.log('[ScutJwImport]   - 学期开始:', scheduleData.table.startDate)
+      console.log('[ScutJwImport]   - 最大周数:', scheduleData.table.maxWeek)
+      console.log('[ScutJwImport]   - 显示周六:', scheduleData.table.showSat)
+      console.log('[ScutJwImport]   - 显示周日:', scheduleData.table.showSun)
+
+      // Log each lesson for debugging
+      scheduleData.lessons.forEach((lesson, i) => {
+        console.log(`[ScutJwImport]   lesson[${i}]: day=${lesson.day} node=${lesson.startNode}-${lesson.endNode} week=${lesson.startWeek}-${lesson.endWeek} step=${lesson.weekStep} room=${lesson.room} teacher=${lesson.teacher}`)
       })
 
       const themePreset = getScheduleThemePreset()
       const themeId = themePreset.id
       const nextSemesterStartDate = scheduleData.table.startDate || fallbackSemesterStartDate
+
+      console.log('[ScutJwImport] 步骤5/6: 保存课表')
+      console.log('[ScutJwImport]   - 主题:', themeId, themePreset.name)
+      console.log('[ScutJwImport]   - 学期开始:', nextSemesterStartDate)
+
       const result = saveScheduleDataWithOptions(scheduleData, {
         themeId,
         timeSlotPresetId: 'builtIn',
@@ -175,11 +237,22 @@ function ScutJwImportPage() {
         throw new Error('课表保存失败，请检查浏览器存储空间')
       }
 
+      console.log('[ScutJwImport] 步骤6/6: 持久化学期开始日期')
       saveSemesterStartDate(nextSemesterStartDate)
+
+      console.log('[ScutJwImport] ====== 导入成功 ======')
       messageApi.success(`华工教务课表导入成功，已按当前主题“${themePreset.name}”上色`)
-      navigate('/mine/schedule-settings', { replace: true })
+      // Navigate to courses — the user's goal is to see the imported schedule.
+      // Using replace avoids adding a duplicate history entry that would cause
+      // a white screen on back navigation (the settings page already mounted
+      // with closing animation, and navigate(-1) to a same-URL entry would
+      // keep the stale closing state without re-rendering).
+      navigate('/courses', { replace: true })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '华工教务课表导入失败'
+      console.error('[ScutJwImport] ====== 导入失败 ======')
+      console.error('[ScutJwImport] 错误信息:', errorMessage)
+      console.error('[ScutJwImport] 原始错误:', error)
       messageApi.error(errorMessage)
     } finally {
       setIsImporting(false)

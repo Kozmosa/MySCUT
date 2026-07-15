@@ -7,16 +7,16 @@ const currentDir = dirname(fileURLToPath(import.meta.url))
 export const rootDir = resolve(currentDir, '..')
 export const docsProjectDir = resolve(rootDir, 'external/survive-in-scut')
 
-export function run(command, cwd = rootDir, envOverrides = undefined) {
+export function run(command, cwd = rootDir, envOverrides = undefined, timeoutMs = undefined) {
   execSync(command, {
     cwd,
     stdio: 'inherit',
+    timeout: timeoutMs,
     env: envOverrides ? { ...process.env, ...envOverrides } : process.env,
   })
 }
-
 export function ensureManualSubmodule() {
-  run('git submodule update --init external/survive-in-scut', rootDir)
+  run('git submodule update --init external/survive-in-scut', rootDir, undefined, 15_000)
 }
 
 export function getPinnedManualCommit() {
@@ -30,7 +30,7 @@ export function getPinnedManualCommit() {
 }
 
 export function pullLatestManual() {
-  run('git fetch origin', docsProjectDir)
+  run('git fetch origin', docsProjectDir, undefined, 15_000)
   run('git checkout --detach origin/main', docsProjectDir)
 }
 
