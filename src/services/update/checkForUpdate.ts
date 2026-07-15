@@ -163,15 +163,17 @@ function normalizeAssetLinks(assetField: string | RemoteAssetLink[] | undefined)
 
 function resolveAssetUrl(assetField: string | RemoteAssetLink[] | undefined, providerOrder: UpdateLinkProviderId[]) {
   const links = normalizeAssetLinks(assetField)
+  const preferredR2Link = links.find((link) => link.source === 'r2')
+  if (preferredR2Link) {
+    return buildProviderUrl('raw', preferredR2Link.url)
+  }
+
+  const preferredGithubLink = links.find((link) => link.source === 'github')
+  if (preferredGithubLink) {
+    return resolveGithubDownloadUrl(preferredGithubLink.url, providerOrder)
+  }
+
   for (const link of links) {
-    if (link.source === 'github') {
-      return resolveGithubDownloadUrl(link.url, providerOrder)
-    }
-
-    if (link.source === 'r2') {
-      return buildProviderUrl('raw', link.url)
-    }
-
     const normalizedUrl = link.url.toLowerCase()
     if (normalizedUrl.includes('github')) {
       return resolveGithubDownloadUrl(link.url, providerOrder)

@@ -37,3 +37,21 @@ for (const result of results) {
     console.log(`- ${result.name}: failed (${result.detail})`)
   }
 }
+
+const strictModeEnabled = process.env.BUILD_FULL_STRICT === '1' || process.env.BUILD_FULL_STRICT === 'true'
+const requiredTaskNames = (process.env.BUILD_FULL_REQUIRED || '')
+  .split(',')
+  .map((item) => item.trim().toLowerCase())
+  .filter((item) => item.length > 0)
+
+if (strictModeEnabled) {
+  const requiredSet = new Set(requiredTaskNames.length > 0 ? requiredTaskNames : tasks.map((task) => task.name))
+  const failedRequiredTasks = results.filter(
+    (result) => result.status !== 'ok' && requiredSet.has(result.name.toLowerCase()),
+  )
+
+  if (failedRequiredTasks.length > 0) {
+    const failedNames = failedRequiredTasks.map((result) => result.name).join(', ')
+    throw new Error(`build:full strict mode failed for required targets: ${failedNames}`)
+  }
+}

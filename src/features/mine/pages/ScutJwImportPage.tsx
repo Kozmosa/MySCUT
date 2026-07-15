@@ -10,7 +10,7 @@ import { saveScheduleDataWithOptions } from '../../../core/schedule/storage'
 import { getScheduleThemePreset } from '../../../core/schedule/themeStorage'
 import { getSemesterStartDate, saveSemesterStartDate } from '../../../core/scheduleSettings'
 
-const SCUT_JW_URL = 'http://xsjw2018.jw.scut.edu.cn/'
+const SCUT_JW_URL = 'https://xsjw2018.jw.scut.edu.cn/'
 
 function getCookieHeader(cookies: Record<string, string>) {
   return Object.entries(cookies)

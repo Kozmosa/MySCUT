@@ -94,8 +94,11 @@ async function main() {
   })
   console.log('Updated versions.json')
 
-  console.log('Running shared web build pipeline...')
-  run('npm run build:web', rootDir)
+  console.log('Running full build pipeline (web/android/ios + optional ohos)...')
+  run('npm run build:full', rootDir, {
+    BUILD_FULL_STRICT: '1',
+    BUILD_FULL_REQUIRED: 'web,android,ios',
+  })
 
   console.log('Syncing native versions...')
   run('node scripts/syncNativeVersion.mjs', rootDir)
@@ -104,7 +107,9 @@ async function main() {
 
   if (releaseOptions.platforms.android) {
     console.log('Syncing Android platform...')
-    run('npx cap sync android', rootDir)
+    run('npx cap sync android', rootDir, {
+      CAP_WEB_DIR: 'dist/android',
+    })
 
     console.log('Opening Android Studio project...')
     run('npx cap open android', rootDir)
@@ -121,7 +126,9 @@ async function main() {
 
   if (releaseOptions.platforms.ios) {
     console.log('Syncing iOS platform...')
-    run('npx cap sync ios', rootDir)
+    run('npx cap sync ios', rootDir, {
+      CAP_WEB_DIR: 'dist/ios',
+    })
 
     console.log('Opening Xcode project...')
     run('npx cap open ios', rootDir)

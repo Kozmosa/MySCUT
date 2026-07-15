@@ -42,6 +42,42 @@ describe('checkForAppUpdate', () => {
     expect(result.downloadUrl).toBe('https://r2.example.com/releases/v0.4.3/qmm-v0.4.3.apk')
   })
 
+  it('prefers r2 asset when github appears first in list', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          latest: {
+            version: '0.4.4',
+            assets: {
+              apk: [
+                {
+                  source: 'github',
+                  url: 'https://github.com/Kozmosa/MySCUT/releases/download/v0.4.4/qmm-v0.4.4.apk',
+                },
+                { source: 'r2', url: 'https://r2.example.com/releases/v0.4.4/qmm-v0.4.4.apk' },
+              ],
+            },
+          },
+        }),
+      }),
+    )
+
+    const result = await checkForAppUpdate({
+      localVersion: '0.4.2',
+      providerOrder: ['fastgit', 'github'],
+    })
+
+    expect(result.status).toBe('update-available')
+    if (result.status !== 'update-available') {
+      return
+    }
+
+    expect(result.latestVersion).toBe('0.4.4')
+    expect(result.downloadUrl).toBe('https://r2.example.com/releases/v0.4.4/qmm-v0.4.4.apk')
+  })
+
   it('supports legacy string asset and applies github provider transformation', async () => {
     vi.stubGlobal(
       'fetch',
