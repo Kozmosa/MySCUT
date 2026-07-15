@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This guide is for coding agents working in `E:\Code\MySCUT`.
+This guide is for coding agents working in this repository.
 It reflects the current repository state and local conventions.
 
 ## 0) Mandatory Source of Truth
