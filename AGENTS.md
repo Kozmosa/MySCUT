@@ -22,16 +22,16 @@ It reflects the current repository state and local conventions.
 
 ## 2) Package Manager
 
-- Preferred package manager: Yarn (from `PROJECT_BASIS.md`).
-- No lockfile is currently committed.
-- Use Yarn commands in docs and examples.
-- If Yarn is unavailable, use npm equivalents.
+- The project ships a committed `package-lock.json` for deterministic installs.
+- Historically Yarn was preferred, but npm lockfile is the source of truth.
+- Use `npm install` for dependency management.
+- If you need Yarn, remove `package-lock.json` first and regenerate `yarn.lock`.
+- Never mix package managers — pick one per checkout.
 
 ## 3) Build / Run / Lint / Test Commands
-
 ### Install
-- `yarn install`
-- npm fallback: `npm install`
+- `npm install` (uses committed `package-lock.json`)
+- For clean reinstall: `rm -rf node_modules && npm install`
 
 ### Development
 - `yarn dev`
