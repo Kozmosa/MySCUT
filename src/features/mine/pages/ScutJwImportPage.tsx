@@ -2,18 +2,46 @@ import { CloseOutlined } from '@ant-design/icons'
 import { Capacitor, CapacitorCookies, CapacitorHttp } from '@capacitor/core'
 import { DefaultWebViewOptions, InAppBrowser } from '@capacitor/inappbrowser'
 import { useEffect, useRef, useState } from 'react'
-import { Modal, message } from 'antd'
+import { Input, Modal, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { CircleIconButton } from '../../../components/buttons/CircleIconButton'
 import { parseScutScheduleHtml } from '../../../core/schedule/importScutHtml'
+import {
+  SCUT_JW_CAMPUS_URL,
+  SCUT_JW_WEBVPN_URL,
+  resolveScutJwEntryUrl,
+  type ScutJwAccessMode,
+} from '../../../core/schedule/scutJwAccess'
 import { saveScheduleDataWithOptions } from '../../../core/schedule/storage'
 import { resolveScheduleImportThemePreset } from '../../../core/schedule/themePresets'
 import { getScheduleThemeId } from '../../../core/schedule/themeStorage'
 import { getSemesterStartDate, saveSemesterStartDate } from '../../../core/scheduleSettings'
 
+const SCUT_JW_ACCESS_OPTIONS: Array<{
+  value: ScutJwAccessMode
+  label: string
+  description: string
+}> = [
+  {
+    value: 'campus',
+    label: '校园网',
+    description: SCUT_JW_CAMPUS_URL,
+  },
+  {
+    value: 'webvpn',
+    label: '校外 WebVPN',
+    description: SCUT_JW_WEBVPN_URL,
+  },
+  {
+    value: 'custom',
+    label: '自定义网址',
+    description: '输入其他可访问的教务系统网址',
+  },
+]
+
 // Override via localStorage for testing against mock server:
 //   localStorage.setItem('scutJwMockUrl', 'http://10.0.2.2:8080/')
-function getScutJwBaseUrl(): string {
+function getScutJwTargetUrl(targetUrl: string): string {
   try {
     const override = localStorage.getItem('scutJwMockUrl')
     if (override) {
@@ -25,7 +53,7 @@ function getScutJwBaseUrl(): string {
   } catch {
     // localStorage may not be available
   }
-  return 'https://xsjw2018.jw.scut.edu.cn/'
+  return targetUrl
 }
 
 function getCookieHeader(cookies: Record<string, string>) {
@@ -56,10 +84,16 @@ function ScutJwImportPage() {
   const [isImporting, setIsImporting] = useState(false)
   const [isOpeningBrowser, setIsOpeningBrowser] = useState(false)
   const [isBrowserClosed, setIsBrowserClosed] = useState(false)
+  const [accessMode, setAccessMode] = useState<ScutJwAccessMode>('campus')
+  const [customUrl, setCustomUrl] = useState('')
   const hasShownGuideRef = useRef(false)
   const listenerHandlesRef = useRef<Array<{ remove: () => Promise<void> }>>([])
 
   const isAndroidNative = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
+  const entryUrlResult = resolveScutJwEntryUrl(accessMode, customUrl)
+  const customUrlError = accessMode === 'custom' && customUrl.trim() && !entryUrlResult.ok
+    ? entryUrlResult.error
+    : ''
 
   useEffect(() => {
     if (!isAndroidNative || hasShownGuideRef.current) {
@@ -69,7 +103,7 @@ function ScutJwImportPage() {
     hasShownGuideRef.current = true
     Modal.info({
       title: '导入提示',
-      content: '请先登录教务系统，并在内置浏览器中打开“个人课表查询”栏目，然后再点击“开始导入当前页面”。',
+      content: '请选择当前可用的访问方式，登录教务系统并打开“个人课表查询”栏目，然后再点击“开始导入当前页面”。',
       okText: '知道了',
     })
   }, [isAndroidNative])
@@ -122,16 +156,36 @@ function ScutJwImportPage() {
     navigate('/mine/schedule-settings', { replace: true })
   }
 
+  const resetCapturedPage = () => {
+    setLastNavigatedUrl('')
+    setIsBrowserClosed(false)
+  }
+
+  const handleAccessModeChange = (nextAccessMode: ScutJwAccessMode) => {
+    setAccessMode(nextAccessMode)
+    resetCapturedPage()
+  }
+
+  const handleCustomUrlChange = (nextCustomUrl: string) => {
+    setCustomUrl(nextCustomUrl)
+    resetCapturedPage()
+  }
+
   const handleOpenBrowser = async () => {
     if (!isAndroidNative || isOpeningBrowser) {
       return
     }
 
+    if (!entryUrlResult.ok) {
+      messageApi.error(entryUrlResult.error)
+      return
+    }
+
     setIsOpeningBrowser(true)
-    setIsBrowserClosed(false)
+    resetCapturedPage()
 
     try {
-      const targetUrl = getScutJwBaseUrl()
+      const targetUrl = getScutJwTargetUrl(entryUrlResult.url)
       debugLog('[ScutJwImport] Opening InAppBrowser to:', targetUrl)
       await InAppBrowser.openInWebView({
         url: targetUrl,
@@ -285,9 +339,61 @@ function ScutJwImportPage() {
           <p className='schedule-pdf-error'>当前环境不支持该功能，请在安卓原生应用中使用。</p>
         ) : (
           <>
+            <fieldset className='scut-jw-access-group'>
+              <legend className='scut-jw-access-legend'>访问方式</legend>
+              <div className='scut-jw-access-options'>
+                {SCUT_JW_ACCESS_OPTIONS.map((option) => (
+                  <label
+                    key={option.value}
+                    className={`scut-jw-access-option ${accessMode === option.value ? 'is-active' : ''}`}
+                  >
+                    <input
+                      type='radio'
+                      name='scut-jw-access-mode'
+                      value={option.value}
+                      checked={accessMode === option.value}
+                      onChange={() => handleAccessModeChange(option.value)}
+                    />
+                    <span className='scut-jw-access-radio' aria-hidden='true' />
+                    <span className='scut-jw-access-copy'>
+                      <span className='scut-jw-access-label'>
+                        {option.label}
+                        {option.value === 'campus' ? <span className='scut-jw-access-badge'>默认</span> : null}
+                      </span>
+                      <span className='scut-jw-access-description'>{option.description}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              {accessMode === 'custom' ? (
+                <div className='scut-jw-custom-url'>
+                  <Input
+                    value={customUrl}
+                    onChange={(event) => handleCustomUrlChange(event.target.value)}
+                    placeholder='例如 jw.example.edu.cn'
+                    inputMode='url'
+                    autoCapitalize='none'
+                    autoCorrect='off'
+                    spellCheck={false}
+                    status={customUrlError ? 'error' : undefined}
+                    aria-invalid={Boolean(customUrlError)}
+                    aria-describedby='scut-jw-custom-url-hint'
+                  />
+                  <p
+                    id='scut-jw-custom-url-hint'
+                    className={`scut-jw-custom-url-hint ${customUrlError ? 'is-error' : ''}`}
+                    role={customUrlError ? 'alert' : undefined}
+                  >
+                    {customUrlError || '未填写协议时将自动使用 HTTPS'}
+                  </p>
+                </div>
+              ) : null}
+            </fieldset>
+
             <div className='scut-jw-tip-card'>
               <p className='scut-jw-tip-title'>操作提示</p>
-              <p className='scut-jw-tip-text'>1. 点击“打开教务系统”并完成登录</p>
+              <p className='scut-jw-tip-text'>1. 选择访问方式，点击“打开教务系统”并完成登录</p>
               <p className='scut-jw-tip-text'>2. 在内置浏览器中进入“个人课表查询”栏目</p>
               <p className='scut-jw-tip-text'>3. 返回此页点击“开始导入当前页面”</p>
             </div>
@@ -295,7 +401,7 @@ function ScutJwImportPage() {
             <div className='mine-button-group'>
               <button type='button' className='mine-group-button schedule-settings-action' onClick={() => {
                 void handleOpenBrowser()
-              }} disabled={isOpeningBrowser}>
+              }} disabled={isOpeningBrowser || !entryUrlResult.ok}>
                 {isOpeningBrowser ? '正在打开...' : '打开教务系统'}
               </button>
               <button
