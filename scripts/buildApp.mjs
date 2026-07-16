@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { extname, resolve } from 'node:path'
 import {
   docsProjectDir,
@@ -10,18 +10,21 @@ import {
   rootDir,
   run,
 } from './manualSubmoduleUtils.mjs'
+import { createManualDependencyStamp, resolveManualBuildProtocol } from './manualBuildProtocol.mjs'
+import { buildManualVitePress } from './manualVitePressBuild.mjs'
 
-const docsPlatformDistDir = resolve(docsProjectDir, 'vue-platform-dist')
 const appOutDir = resolve(rootDir, process.env.VITE_OUT_DIR || 'dist/web')
 const appDocsDistDir = resolve(appOutDir, 'docs')
 const docsNodeModulesDir = resolve(docsProjectDir, 'node_modules')
+const docsDependencyStampPath = resolve(docsNodeModulesDir, '.myscut-manual-dependencies')
 const docsIgnoredExtensions = new Set(['.apk', '.ipa', '.map'])
+const configFileNames = ['config.ts', 'config.js', 'config.mjs', 'config.cjs']
 
 function shouldCopyDocsFile(filePath) {
   return !docsIgnoredExtensions.has(extname(filePath).toLowerCase())
 }
 
-function copyDocsDist() {
+function copyDocsDist(docsPlatformDistDir) {
   if (!existsSync(docsPlatformDistDir)) {
     throw new Error(`Docs build output not found: ${docsPlatformDistDir}`)
   }
@@ -38,19 +41,45 @@ function copyDocsDist() {
   }
 }
 
-function ensureDocsDependencies() {
-  if (existsSync(docsNodeModulesDir)) {
+function hasDocsConfig(configDirectoryName) {
+  return configFileNames.some((fileName) => (
+    existsSync(resolve(docsProjectDir, 'docs', configDirectoryName, fileName))
+  ))
+}
+
+function getManualBuildProtocol() {
+  return resolveManualBuildProtocol({
+    hasPackageLock: existsSync(resolve(docsProjectDir, 'package-lock.json')),
+    hasVitePressConfig: hasDocsConfig('.vitepress'),
+  })
+}
+
+function ensureDocsDependencies(protocol) {
+  const lockFileContent = readFileSync(resolve(docsProjectDir, protocol.lockFileName), 'utf8')
+  const expectedStamp = createManualDependencyStamp(protocol.installCommand, lockFileContent)
+
+  if (
+    existsSync(docsNodeModulesDir) &&
+    existsSync(docsDependencyStampPath) &&
+    readFileSync(docsDependencyStampPath, 'utf8') === expectedStamp
+  ) {
     return
   }
 
-  run('npm install --no-package-lock', docsProjectDir)
+  run(protocol.installCommand, docsProjectDir, {
+    SKIP_INSTALL_SIMPLE_GIT_HOOKS: '1',
+  })
+  writeFileSync(docsDependencyStampPath, expectedStamp, 'utf8')
+}
+
+function buildManual(protocol) {
+  const outputDir = resolve(docsProjectDir, protocol.outputDirectoryName)
+  buildManualVitePress({ docsProjectDir, outputDir })
 }
 
 function cleanupDocsArtifacts() {
-  rmSync(docsPlatformDistDir, { recursive: true, force: true })
+  rmSync(resolve(docsProjectDir, 'vite-platform-dist'), { recursive: true, force: true })
 }
-
-const pinnedManualCommit = getPinnedManualCommit()
 
 // Submodule operations may fail offline; the app build itself does not
 // depend on them — only the docs copy step does.
@@ -59,6 +88,9 @@ try {
 } catch {
   console.warn('[buildApp]  子模块检出失败，跳过（不影响 App 本体）')
 }
+
+const pinnedManualCommit = getPinnedManualCommit()
+
 try {
   pullLatestManual()
 } catch {
@@ -72,13 +104,12 @@ try {
     VITE_OUT_DIR: appOutDir,
     VITE_TARGET_PLATFORM: viteTargetPlatform,
   })
-  ensureDocsDependencies()
-  run('npm install --no-save --no-package-lock vitepress', docsProjectDir)
-  run('npm run docs:build:platform', docsProjectDir)
-  copyDocsDist()
+  const manualBuildProtocol = getManualBuildProtocol()
+  ensureDocsDependencies(manualBuildProtocol)
+  buildManual(manualBuildProtocol)
+  copyDocsDist(resolve(docsProjectDir, manualBuildProtocol.outputDirectoryName))
   cleanupDocsArtifacts()
 } finally {
-  try { run('git checkout -- .', docsProjectDir) } catch { /* submodule not available */ }
-  try { run('git clean -fd', docsProjectDir) } catch { /* submodule not available */ }
+  cleanupDocsArtifacts()
   restoreManualCommit(pinnedManualCommit)
 }

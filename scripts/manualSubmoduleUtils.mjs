@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -15,23 +16,33 @@ export function run(command, cwd = rootDir, envOverrides = undefined, timeoutMs 
     env: envOverrides ? { ...process.env, ...envOverrides } : process.env,
   })
 }
-export function ensureManualSubmodule() {
-  run('git submodule update --init external/survive-in-scut', rootDir, undefined, 15_000)
+export function ensureManualSubmodule({
+  manualDir = docsProjectDir,
+  initialize = () => run(
+    'git submodule update --init external/survive-in-scut',
+    rootDir,
+    undefined,
+    60_000,
+  ),
+} = {}) {
+  if (existsSync(resolve(manualDir, '.git'))) {
+    return false
+  }
+
+  initialize()
+  return true
 }
 
 export function getPinnedManualCommit() {
-  const output = execSync('git ls-tree HEAD external/survive-in-scut', {
-    cwd: rootDir,
+  return execSync('git rev-parse HEAD', {
+    cwd: docsProjectDir,
     encoding: 'utf8',
   }).trim()
-
-  const parts = output.split(/\s+/)
-  return parts.length >= 3 ? parts[2] : ''
 }
 
 export function pullLatestManual() {
-  run('git fetch origin', docsProjectDir, undefined, 15_000)
-  run('git checkout --detach origin/main', docsProjectDir)
+  run('git fetch --depth=1 origin main', docsProjectDir, undefined, 120_000)
+  run('git switch --detach FETCH_HEAD', docsProjectDir)
 }
 
 export function restoreManualCommit(commitHash) {
@@ -39,5 +50,5 @@ export function restoreManualCommit(commitHash) {
     return
   }
 
-  run(`git checkout --detach ${commitHash}`, docsProjectDir)
+  run(`git switch --detach ${commitHash}`, docsProjectDir)
 }
