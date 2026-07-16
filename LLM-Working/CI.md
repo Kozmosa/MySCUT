@@ -11,7 +11,6 @@
   - `options.mjs`：发布参数解析
   - `versioning.mjs`：版本合法性校验与 `versions.json` 更新
   - `assets.mjs`：Android/iOS 产物发现与重命名
-  - `manualAssets.mjs`：手册子模块 root-assets 同步与提交
   - `gitFlow.mjs`：主仓提交、打 tag、推送
 - 推送 Tag（`v*`）后，GitHub Actions 工作流 `.github/workflows/release-on-tag.yml` 负责创建/更新 GitHub Release 并上传产物。
 
@@ -80,6 +79,7 @@
 - Android 产物：`qmm-v<version>.apk`（按选择平台可选）。
 - iOS 产物：`qmm-v<version>.ipa`（按选择平台可选）。
 - 元数据：`versions.json`（始终参与发布）。
+- APK/IPA 只随主仓 GitHub Release（以及显式启用时的 R2）发布，不再复制或提交到手册子模块。
 - `versions.json` 的 `assets` 字段：
   - 始终包含 `versions`。
   - 仅在选中对应平台时写入 `apk` / `ipa`。

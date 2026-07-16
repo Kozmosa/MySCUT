@@ -56,7 +56,6 @@
               │  阶段 5: 发布上传             │
               │  · 上传 APK/IPA 到 R2(可选)   │
               │  · 写入 release note 文件     │
-              │  · 同步 root-assets 到子模块  │
               │  · git commit + tag + push   │
               └──────────┬──────────────────┘
                          │
@@ -226,15 +225,7 @@ BUILD_FULL_STRICT=1 BUILD_FULL_REQUIRED=web,android npm run build:full
    if (--note 已传):
      writeFileSync(.release-notes/v<tag>.md, note)
 
-3. 同步到手册子模块
-   ensureManualMainBranch()
-   syncLatestAssetsToManual({ apkPath, versionsPath })
-     → cp apk → external/survive-in-scut/docs/.vuepress/public/root-assets/qmm-latest.apk
-     → cp versions.json → .../root-assets/versions.json
-   commitAndPushManualAssets({ version, hasApk })
-     → git commit + push (到子模块 main 分支)
-
-4. Git 提交主仓
+3. Git 提交主仓
    stageCommitAndTag({ version, tag, noteFilePath })
      → git add package.json versions.json [.release-notes/v<tag>.md]
      → git commit -m "chore(release): prepare v<version>"
@@ -278,7 +269,6 @@ scripts/
 │   ├── versioning.mjs            # 版本校验 + package+versions 写入
 │   ├── gitFlow.mjs               # Branch/tag 操作 + git commit/push
 │   ├── assets.mjs                # APK/IPA 自动发现与重命名
-│   ├── manualAssets.mjs          # 子模块 root-assets 同步与提交
 │   ├── notes.mjs                 # Release note 文件写入
 │   ├── r2.mjs                    # Cloudflare R2 S3 上传
 │   ├── r2Config.mjs              # R2 配置读取 (R2_ENV → env var)
