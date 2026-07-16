@@ -171,14 +171,15 @@ node scripts/syncNativeVersion.mjs
 
 **`buildApp.mjs` 内部流程**（所有平台共享）：
 ```
-1. ensureManualSubmodule()    — git submodule init
-2. pullLatestManual()          — fetch + checkout --detach origin/main
+1. ensureManualSubmodule()    — 仅在尚未初始化时执行 git submodule init
+2. pullLatestManual()          — fetch --depth=1 origin main + switch FETCH_HEAD
 3. build:todo-snapshot         — 生成 todoSnapshot.ts
 4. tsc -b && vite build        — 核心构建
-5. docs deps install + build   — 子模块文档站编译
-6. copyDocsDist()              — 文档产物合并到 app dist/docs/
-7. cleanupDocsArtifacts()
-8. finally: git checkout + clean + restoreManualCommit()
+5. npm ci（package-lock 变更时）— 安装新版手册依赖
+6. VitePress 隔离构建         — 临时副本 + /docs/ base → vite-platform-dist
+7. copyDocsDist()              — 文档产物合并到 app dist/docs/
+8. cleanupDocsArtifacts()      — 清理临时目录与平台产物
+9. finally: restoreManualCommit() — 恢复构建前实际检出的手册提交
 ```
 
 `build:full` 默认宽容模式：单个平台失败不影响其他平台。通过以下 env 可开启严格模式：
@@ -365,6 +366,7 @@ Public URL:
    ```bash
    npm run release 0.5.0 --android --note "- 功能A\n- 修复B"
    ```
+7. **SQLite 加密合规**：`@capacitor-community/sqlite` 的 Android/iOS 实现包含 SQLCipher。发布移动端前需确认应用商店加密声明、目标市场出口合规要求，并记录审查结论
 
 ---
 
