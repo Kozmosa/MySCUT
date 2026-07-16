@@ -15,6 +15,11 @@ export function buildR2ReleaseObjectKey({ keyPrefix, version, fileName }) {
   return `${normalizedPrefix}/v${version}/${fileName}`
 }
 
+export function buildR2LatestVersionsObjectKey({ keyPrefix }) {
+  const normalizedPrefix = keyPrefix.replace(/^\/+|\/+$/g, '')
+  return `${normalizedPrefix}/versions.json`
+}
+
 export function buildR2PublicUrl({ publicBaseUrl, objectKey }) {
   return `${publicBaseUrl}/${encodeObjectKey(objectKey)}`
 }
@@ -27,6 +32,10 @@ function detectContentType(filePath) {
 
   if (fileName.endsWith('.ipa')) {
     return 'application/octet-stream'
+  }
+
+  if (fileName.endsWith('.json')) {
+    return 'application/json; charset=utf-8'
   }
 
   return 'application/octet-stream'

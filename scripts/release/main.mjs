@@ -1,11 +1,16 @@
-import { VERSION_PATTERN, rootDir } from './constants.mjs'
+import { versionsJsonPath, VERSION_PATTERN, rootDir } from './constants.mjs'
 import { prepareAndroidReleaseAsset, findLatestIpa, prepareIosReleaseAsset } from './assets.mjs'
 import { ensureMainBranch, ensureTagNotExists, stageCommitAndTag } from './gitFlow.mjs'
 import { writeReleaseNoteFile } from './notes.mjs'
 import { parseReleaseOptions } from './options.mjs'
 import { askHidden, askText, askYesNo } from './prompt.mjs'
 import { extractRepoInfo } from './repo.mjs'
-import { buildR2PublicUrl, buildR2ReleaseObjectKey, uploadReleaseAssetToR2 } from './r2.mjs'
+import {
+  buildR2LatestVersionsObjectKey,
+  buildR2PublicUrl,
+  buildR2ReleaseObjectKey,
+  uploadReleaseAssetToR2,
+} from './r2.mjs'
 import { bootstrapR2EnvFile, loadR2Config, shouldBootstrapR2EnvFile } from './r2Config.mjs'
 import { run } from './shared.mjs'
 import { updatePackageVersion, updateVersionsJson, validateTargetVersion } from './versioning.mjs'
@@ -45,9 +50,28 @@ async function main() {
 
   const r2Config = isR2Release ? loadR2Config() : null
   const plannedR2AssetUrls = {}
+  const r2VersionManifestObjectKeys = []
 
   if (isR2Release && r2Config) {
     console.log('R2 asset source enabled, release assets will be uploaded to Cloudflare R2.')
+    const versionedManifestObjectKey = buildR2ReleaseObjectKey({
+      keyPrefix: r2Config.keyPrefix,
+      version: nextVersion,
+      fileName: 'versions.json',
+    })
+    const latestManifestObjectKey = buildR2LatestVersionsObjectKey({
+      keyPrefix: r2Config.keyPrefix,
+    })
+    r2VersionManifestObjectKeys.push(versionedManifestObjectKey, latestManifestObjectKey)
+    plannedR2AssetUrls.versions = buildR2PublicUrl({
+      publicBaseUrl: r2Config.publicBaseUrl,
+      objectKey: versionedManifestObjectKey,
+    })
+    plannedR2AssetUrls.latestVersions = buildR2PublicUrl({
+      publicBaseUrl: r2Config.publicBaseUrl,
+      objectKey: latestManifestObjectKey,
+    })
+
     if (releaseOptions.platforms.android) {
       const objectKey = buildR2ReleaseObjectKey({
         keyPrefix: r2Config.keyPrefix,
@@ -167,6 +191,15 @@ async function main() {
         r2Config,
       })
       console.log(`Uploaded ${fileName} to R2: ${uploadedUrl}`)
+    }
+
+    for (const objectKey of r2VersionManifestObjectKeys) {
+      const uploadedUrl = await uploadReleaseAssetToR2({
+        localFilePath: versionsJsonPath,
+        objectKey,
+        r2Config,
+      })
+      console.log(`Uploaded versions.json to R2: ${uploadedUrl}`)
     }
   }
 

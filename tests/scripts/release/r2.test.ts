@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildR2PublicUrl, buildR2ReleaseObjectKey } from '../../../scripts/release/r2.mjs'
+import {
+  buildR2LatestVersionsObjectKey,
+  buildR2PublicUrl,
+  buildR2ReleaseObjectKey,
+} from '../../../scripts/release/r2.mjs'
 
 describe('r2 helper functions', () => {
   it('builds release object key with normalized prefix', () => {
@@ -19,5 +23,11 @@ describe('r2 helper functions', () => {
     })
 
     expect(publicUrl).toBe('https://cdn.example.com/releases/v0.4.2/My%20SCUT.apk')
+  })
+
+  it('builds a stable versions manifest object key', () => {
+    expect(buildR2LatestVersionsObjectKey({
+      keyPrefix: '/releases/',
+    })).toBe('releases/versions.json')
   })
 })

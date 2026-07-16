@@ -97,9 +97,10 @@ export function updateVersionsJson({
   const ipaName = `qmm-v${version}.ipa`
   const versionsName = 'versions.json'
   const publishedAt = new Date().toISOString()
+  const githubVersionsUrl = `${baseDownloadUrl}/${versionsName}`
 
   const assets = {
-    versions: `${baseDownloadUrl}/${versionsName}`,
+    versions: r2AssetUrls?.versions || githubVersionsUrl,
   }
 
   if (hasAndroidAsset) {
@@ -141,6 +142,7 @@ export function updateVersionsJson({
       releaseUrl: nextVersionData.releaseUrl,
       assets: {
         ...nextVersionData.assets,
+        versions: r2AssetUrls?.latestVersions || nextVersionData.assets.versions,
       },
     },
     versions: {
