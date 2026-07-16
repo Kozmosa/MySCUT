@@ -909,7 +909,7 @@ function CoursesPage() {
     setIsSaveNameModalOpen(true)
   }
 
-  const handleSubmitSaveName = () => {
+  const handleSubmitSaveName = async () => {
     if (!intersectionPreviewPayload) {
       setIsSaveNameModalOpen(false)
       finalizePreviewExit()
@@ -917,21 +917,26 @@ function CoursesPage() {
     }
 
     const preferredName = saveNameInput.trim() || intersectionPreviewPayload.defaultSaveName || '课表取交集'
-    const saveResult = saveScheduleDataWithOptions(intersectionPreviewPayload.scheduleData, {
-      themeId: activeScheduleEntry?.themeId ?? 'skyBlue',
-      semesterStartDate: getSemesterStartDate(),
-      timeSlotPresetId: 'union',
-      preferredName,
-      setActive: true,
-    })
+    try {
+      const saveResult = await saveScheduleDataWithOptions(intersectionPreviewPayload.scheduleData, {
+        themeId: activeScheduleEntry?.themeId ?? 'skyBlue',
+        semesterStartDate: getSemesterStartDate(),
+        timeSlotPresetId: 'union',
+        preferredName,
+        setActive: true,
+      })
 
-    if (!saveResult.ok) {
-      messageApi.error('课表保存失败，请检查浏览器存储空间')
-      return
+      if (!saveResult.ok) {
+        messageApi.error('课表保存失败，请稍后重试')
+        return
+      }
+
+      setIsSaveNameModalOpen(false)
+      finalizePreviewExit()
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '课表保存失败'
+      messageApi.error(errorMessage)
     }
-
-    setIsSaveNameModalOpen(false)
-    finalizePreviewExit()
   }
 
   return (

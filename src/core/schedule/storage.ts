@@ -1,15 +1,27 @@
+import {
+  StorageError,
+  createJsonStorageCodec,
+  type PersistentKey,
+  type PersistentStorageRuntime,
+  type StorageLike,
+} from '../storage'
+import { resolveScheduleImportThemePreset } from './themePresets'
 import type { SavedSchedule, ScheduleData, TimeSlotPresetId } from './types'
 
-const SCHEDULE_STORAGE_KEY = 'scheduleData'
-const SCHEDULE_LIBRARY_STORAGE_KEY = 'scheduleLibrary'
+const LEGACY_SCHEDULE_STORAGE_KEY = 'scheduleData'
+const LEGACY_SCHEDULE_LIBRARY_STORAGE_KEY = 'scheduleLibrary'
+const LEGACY_THEME_STORAGE_KEY = 'scheduleThemeId'
+const LEGACY_SEMESTER_START_DATE_STORAGE_KEY = 'semesterStartDate'
+const LEGACY_DEFAULT_SEMESTER_START_DATE = '2026-02-23'
+const SCHEDULE_LIBRARY_MIGRATION_ID = 'schedule-library-v1-from-localstorage'
 
-type ScheduleLibrary = {
+export type ScheduleLibrary = {
   version: 1
   activeScheduleId: string
   schedules: SavedSchedule[]
 }
 
-type SaveScheduleOptions = {
+export type SaveScheduleOptions = {
   themeId: string
   semesterStartDate: string
   timeSlotPresetId?: TimeSlotPresetId
@@ -18,7 +30,13 @@ type SaveScheduleOptions = {
 }
 
 function normalizeTimeSlotPresetId(value: unknown): TimeSlotPresetId {
-  if (value === 'universityTown' || value === 'wushan' || value === 'international' || value === 'builtIn' || value === 'union') {
+  if (
+    value === 'universityTown' ||
+    value === 'wushan' ||
+    value === 'international' ||
+    value === 'builtIn' ||
+    value === 'union'
+  ) {
     return value
   }
 
@@ -30,11 +48,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function isScheduleData(value: unknown): value is ScheduleData {
-  if (!isObject(value)) {
-    return false
-  }
-
-  if (value.version !== 1) {
+  if (!isObject(value) || value.version !== 1) {
     return false
   }
 
@@ -42,11 +56,7 @@ function isScheduleData(value: unknown): value is ScheduleData {
     return false
   }
 
-  if (!isObject(value.table) || !Array.isArray(value.courses) || !Array.isArray(value.lessons)) {
-    return false
-  }
-
-  return true
+  return isObject(value.table) && Array.isArray(value.courses) && Array.isArray(value.lessons)
 }
 
 function isSavedSchedule(value: unknown): value is SavedSchedule {
@@ -54,30 +64,28 @@ function isSavedSchedule(value: unknown): value is SavedSchedule {
     return false
   }
 
-  if (typeof value.id !== 'string' || typeof value.name !== 'string') {
-    return false
-  }
-
-  if (typeof value.themeId !== 'string' || typeof value.semesterStartDate !== 'string') {
+  if (
+    typeof value.id !== 'string' ||
+    typeof value.name !== 'string' ||
+    typeof value.themeId !== 'string' ||
+    typeof value.semesterStartDate !== 'string' ||
+    typeof value.createdAt !== 'number'
+  ) {
     return false
   }
 
   if (
     typeof value.timeSlotPresetId !== 'undefined' &&
-      value.timeSlotPresetId !== 'builtIn' &&
-      value.timeSlotPresetId !== 'universityTown' &&
-      value.timeSlotPresetId !== 'wushan' &&
-      value.timeSlotPresetId !== 'international' &&
-      value.timeSlotPresetId !== 'union'
+    value.timeSlotPresetId !== 'builtIn' &&
+    value.timeSlotPresetId !== 'universityTown' &&
+    value.timeSlotPresetId !== 'wushan' &&
+    value.timeSlotPresetId !== 'international' &&
+    value.timeSlotPresetId !== 'union'
   ) {
     return false
   }
 
-  if (!isScheduleData(value.scheduleData)) {
-    return false
-  }
-
-  return true
+  return isScheduleData(value.scheduleData)
 }
 
 function isScheduleLibrary(value: unknown): value is ScheduleLibrary {
@@ -85,62 +93,50 @@ function isScheduleLibrary(value: unknown): value is ScheduleLibrary {
     return false
   }
 
-  if (value.version !== 1 || typeof value.activeScheduleId !== 'string' || !Array.isArray(value.schedules)) {
-    return false
-  }
+  return (
+    value.version === 1 &&
+    typeof value.activeScheduleId === 'string' &&
+    Array.isArray(value.schedules) &&
+    value.schedules.every(isSavedSchedule)
+  )
+}
 
-  return value.schedules.every(isSavedSchedule)
+function normalizeScheduleLibrary(library: ScheduleLibrary): ScheduleLibrary {
+  return {
+    ...library,
+    schedules: library.schedules.map((schedule) => ({
+      ...schedule,
+      timeSlotPresetId: normalizeTimeSlotPresetId(schedule.timeSlotPresetId),
+    })),
+  }
+}
+
+const scheduleLibraryJsonCodec = createJsonStorageCodec(isScheduleLibrary, '课表库')
+
+const scheduleLibraryCodec = {
+  encode: scheduleLibraryJsonCodec.encode,
+  decode(rawValue: string) {
+    return normalizeScheduleLibrary(scheduleLibraryJsonCodec.decode(rawValue))
+  },
+}
+
+export const SCHEDULE_LIBRARY_KEY: PersistentKey<ScheduleLibrary> = {
+  namespace: 'schedule',
+  name: 'library',
+  schemaVersion: 1,
+  codec: scheduleLibraryCodec,
 }
 
 function createScheduleId() {
   return `schedule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-function readLegacyScheduleData() {
-  try {
-    const raw = localStorage.getItem(SCHEDULE_STORAGE_KEY)
-    if (!raw) {
-      return null
-    }
-
-    const parsed = JSON.parse(raw)
-    return isScheduleData(parsed) ? parsed : null
-  } catch {
-    return null
-  }
-}
-
-function readScheduleLibrary() {
-  try {
-    const raw = localStorage.getItem(SCHEDULE_LIBRARY_STORAGE_KEY)
-    if (!raw) {
-      return null
-    }
-
-    const parsed = JSON.parse(raw)
-    if (!isScheduleLibrary(parsed)) {
-      return null
-    }
-
-    return {
-      ...parsed,
-      schedules: parsed.schedules.map((schedule) => ({
-        ...schedule,
-        timeSlotPresetId: normalizeTimeSlotPresetId(schedule.timeSlotPresetId),
-      })),
-    }
-  } catch {
-    return null
-  }
-}
-
-function writeScheduleLibrary(library: ScheduleLibrary) {
-  try {
-    localStorage.setItem(SCHEDULE_LIBRARY_STORAGE_KEY, JSON.stringify(library))
-    return true
-  } catch {
-    return false
-  }
+function findActiveSchedule(library: ScheduleLibrary) {
+  return (
+    library.schedules.find((schedule) => schedule.id === library.activeScheduleId) ??
+    library.schedules[0] ??
+    null
+  )
 }
 
 function buildSavedSchedule(scheduleData: ScheduleData, options: SaveScheduleOptions): SavedSchedule {
@@ -156,54 +152,363 @@ function buildSavedSchedule(scheduleData: ScheduleData, options: SaveScheduleOpt
   }
 }
 
-function ensureScheduleLibrary() {
-  const existingLibrary = readScheduleLibrary()
-  if (existingLibrary) {
-    return existingLibrary
+function readStorageValue(storage: StorageLike, key: string) {
+  try {
+    return storage.getItem(key)
+  } catch (error) {
+    throw new StorageError('unavailable', '旧版课表存储读取失败', error)
+  }
+}
+
+function readLegacyScheduleLibrary(storage: StorageLike) {
+  let foundCorruptData = false
+  const rawLibrary = readStorageValue(storage, LEGACY_SCHEDULE_LIBRARY_STORAGE_KEY)
+
+  if (rawLibrary !== null) {
+    try {
+      return scheduleLibraryCodec.decode(rawLibrary)
+    } catch {
+      foundCorruptData = true
+    }
   }
 
-  const legacyScheduleData = readLegacyScheduleData()
-  if (!legacyScheduleData) {
+  const rawScheduleData = readStorageValue(storage, LEGACY_SCHEDULE_STORAGE_KEY)
+  if (rawScheduleData !== null) {
+    try {
+      const parsedScheduleData: unknown = JSON.parse(rawScheduleData)
+      if (isScheduleData(parsedScheduleData)) {
+        const themeId = resolveScheduleImportThemePreset(
+          readStorageValue(storage, LEGACY_THEME_STORAGE_KEY),
+        ).id
+        const semesterStartDate =
+          readStorageValue(storage, LEGACY_SEMESTER_START_DATE_STORAGE_KEY) ||
+          LEGACY_DEFAULT_SEMESTER_START_DATE
+        const migratedSchedule: SavedSchedule = {
+          id: 'legacy-schedule',
+          name: parsedScheduleData.table.name || '历史课表',
+          source: parsedScheduleData.source,
+          themeId,
+          timeSlotPresetId: 'builtIn',
+          semesterStartDate,
+          createdAt: parsedScheduleData.importedAt || Date.now(),
+          scheduleData: parsedScheduleData,
+        }
+
+        return {
+          version: 1,
+          activeScheduleId: migratedSchedule.id,
+          schedules: [migratedSchedule],
+        } satisfies ScheduleLibrary
+      }
+      foundCorruptData = true
+    } catch {
+      foundCorruptData = true
+    }
+  }
+
+  if (foundCorruptData) {
+    throw new StorageError('corrupt-data', '旧版课表数据已损坏，已保留原始数据')
+  }
+
+  return null
+}
+
+function removeLegacyScheduleData(storage: StorageLike) {
+  try {
+    storage.removeItem(LEGACY_SCHEDULE_STORAGE_KEY)
+    storage.removeItem(LEGACY_SCHEDULE_LIBRARY_STORAGE_KEY)
+  } catch (error) {
+    throw new StorageError('unavailable', '旧版课表数据清理失败', error)
+  }
+}
+
+function getGlobalLegacyStorage(): StorageLike | null {
+  try {
+    return typeof localStorage === 'undefined' ? null : localStorage
+  } catch {
     return null
   }
-
-  const migratedSchedule: SavedSchedule = {
-    id: 'legacy-schedule',
-    name: legacyScheduleData.table.name || '历史课表',
-    source: legacyScheduleData.source,
-    themeId: localStorage.getItem('scheduleThemeId') || 'skyBlue',
-    timeSlotPresetId: 'builtIn',
-    semesterStartDate: localStorage.getItem('semesterStartDate') || '2026-02-23',
-    createdAt: legacyScheduleData.importedAt || Date.now(),
-    scheduleData: legacyScheduleData,
-  }
-
-  const migratedLibrary: ScheduleLibrary = {
-    version: 1,
-    activeScheduleId: migratedSchedule.id,
-    schedules: [migratedSchedule],
-  }
-
-  writeScheduleLibrary(migratedLibrary)
-
-  return migratedLibrary
 }
 
-function findActiveSchedule(library: ScheduleLibrary) {
-  return (
-    library.schedules.find((schedule) => schedule.id === library.activeScheduleId) ??
-    library.schedules[0] ??
-    null
-  )
+export class ScheduleRepository {
+  private snapshot: ScheduleLibrary | null = null
+  private storageRuntime: PersistentStorageRuntime | null = null
+  private initialized = false
+  private writable = false
+  private readOnlyError: StorageError | null = null
+  private mutationQueue: Promise<void> = Promise.resolve()
+
+  async initialize(runtime: PersistentStorageRuntime, legacyStorage: StorageLike | null) {
+    this.storageRuntime = runtime
+    this.initialized = false
+    this.writable = false
+    this.readOnlyError = null
+    this.mutationQueue = Promise.resolve()
+
+    const persistedLibrary = await runtime.store.get(SCHEDULE_LIBRARY_KEY)
+    this.snapshot = persistedLibrary
+    const migrationCompleted = await runtime.migrationJournal.isCompleted(SCHEDULE_LIBRARY_MIGRATION_ID)
+
+    if (persistedLibrary !== null && !migrationCompleted) {
+      await runtime.migrationJournal.markCompleted(SCHEDULE_LIBRARY_MIGRATION_ID)
+      if (legacyStorage !== null) {
+        removeLegacyScheduleData(legacyStorage)
+      }
+    }
+
+    if (persistedLibrary === null && !migrationCompleted) {
+      if (legacyStorage === null) {
+        throw new StorageError('unavailable', '无法访问旧版课表存储，迁移已暂停')
+      }
+
+      const legacyLibrary = readLegacyScheduleLibrary(legacyStorage)
+      if (legacyLibrary !== null) {
+        await runtime.store.set(SCHEDULE_LIBRARY_KEY, legacyLibrary)
+        const verifiedLibrary = await runtime.store.get(SCHEDULE_LIBRARY_KEY)
+        if (
+          verifiedLibrary === null ||
+          scheduleLibraryCodec.encode(verifiedLibrary) !== scheduleLibraryCodec.encode(legacyLibrary)
+        ) {
+          throw new StorageError('corrupt-data', '课表迁移写入校验失败')
+        }
+
+        this.snapshot = verifiedLibrary
+        await runtime.migrationJournal.markCompleted(SCHEDULE_LIBRARY_MIGRATION_ID)
+        removeLegacyScheduleData(legacyStorage)
+      } else {
+        await runtime.migrationJournal.markCompleted(SCHEDULE_LIBRARY_MIGRATION_ID)
+      }
+    }
+
+    this.initialized = true
+    this.writable = true
+  }
+
+  initializeReadOnly(legacyStorage: StorageLike | null, error: StorageError) {
+    if (this.snapshot === null && legacyStorage !== null) {
+      try {
+        this.snapshot = readLegacyScheduleLibrary(legacyStorage)
+      } catch {
+        this.snapshot = null
+      }
+    }
+
+    this.storageRuntime = null
+    this.initialized = true
+    this.writable = false
+    this.readOnlyError = error
+    this.mutationQueue = Promise.resolve()
+  }
+
+  loadScheduleData() {
+    return this.loadActiveScheduleEntry()?.scheduleData ?? null
+  }
+
+  loadActiveScheduleEntry() {
+    this.assertInitialized()
+    return this.snapshot === null ? null : findActiveSchedule(this.snapshot)
+  }
+
+  listSavedSchedules() {
+    this.assertInitialized()
+    if (this.snapshot === null) {
+      return []
+    }
+
+    return this.snapshot.schedules.map((schedule) => ({
+      id: schedule.id,
+      name: schedule.name,
+      source: schedule.source,
+      themeId: schedule.themeId,
+      semesterStartDate: schedule.semesterStartDate,
+      createdAt: schedule.createdAt,
+      isActive: schedule.id === this.snapshot?.activeScheduleId,
+    }))
+  }
+
+  loadSavedScheduleById(scheduleId: string) {
+    this.assertInitialized()
+    return this.snapshot?.schedules.find((schedule) => schedule.id === scheduleId) ?? null
+  }
+
+  async saveScheduleDataWithOptions(scheduleData: ScheduleData, options: SaveScheduleOptions) {
+    return this.enqueueMutation(async () => {
+      const store = this.requireWritableStore()
+      const nextSchedule = buildSavedSchedule(scheduleData, options)
+      const nextLibrary: ScheduleLibrary = this.snapshot
+        ? {
+            ...this.snapshot,
+            activeScheduleId: options.setActive === false ? this.snapshot.activeScheduleId : nextSchedule.id,
+            schedules: [...this.snapshot.schedules, nextSchedule],
+          }
+        : {
+            version: 1,
+            activeScheduleId: nextSchedule.id,
+            schedules: [nextSchedule],
+          }
+
+      await store.set(SCHEDULE_LIBRARY_KEY, nextLibrary)
+      this.snapshot = nextLibrary
+      return {
+        ok: true as const,
+        schedule: nextSchedule,
+      }
+    })
+  }
+
+  async setActiveScheduleTimeSlotPreset(timeSlotPresetId: TimeSlotPresetId) {
+    return this.enqueueMutation(async () => {
+      const store = this.requireWritableStore()
+      if (this.snapshot === null) {
+        return false
+      }
+
+      const nextLibrary: ScheduleLibrary = {
+        ...this.snapshot,
+        schedules: this.snapshot.schedules.map((schedule) =>
+          schedule.id === this.snapshot?.activeScheduleId
+            ? { ...schedule, timeSlotPresetId }
+            : schedule,
+        ),
+      }
+
+      await store.set(SCHEDULE_LIBRARY_KEY, nextLibrary)
+      this.snapshot = nextLibrary
+      return true
+    })
+  }
+
+  async switchActiveSchedule(scheduleId: string) {
+    return this.enqueueMutation(async () => {
+      const store = this.requireWritableStore()
+      if (this.snapshot === null) {
+        return null
+      }
+
+      const target = this.snapshot.schedules.find((schedule) => schedule.id === scheduleId)
+      if (!target) {
+        return null
+      }
+
+      const nextLibrary: ScheduleLibrary = {
+        ...this.snapshot,
+        activeScheduleId: target.id,
+      }
+
+      await store.set(SCHEDULE_LIBRARY_KEY, nextLibrary)
+      this.snapshot = nextLibrary
+      return target
+    })
+  }
+
+  async deleteSavedSchedule(scheduleId: string) {
+    return this.enqueueMutation(async () => {
+      const store = this.requireWritableStore()
+      if (this.snapshot === null) {
+        return {
+          ok: false as const,
+          nextActiveSchedule: null,
+        }
+      }
+
+      if (!this.snapshot.schedules.some((schedule) => schedule.id === scheduleId)) {
+        return {
+          ok: false as const,
+          nextActiveSchedule: findActiveSchedule(this.snapshot),
+        }
+      }
+
+      const nextSchedules = this.snapshot.schedules.filter((schedule) => schedule.id !== scheduleId)
+      const nextActiveScheduleId =
+        nextSchedules.length === 0
+          ? ''
+          : this.snapshot.activeScheduleId === scheduleId ||
+              !nextSchedules.some((schedule) => schedule.id === this.snapshot?.activeScheduleId)
+            ? nextSchedules[0].id
+            : this.snapshot.activeScheduleId
+      const nextLibrary: ScheduleLibrary = {
+        ...this.snapshot,
+        activeScheduleId: nextActiveScheduleId,
+        schedules: nextSchedules,
+      }
+
+      await store.set(SCHEDULE_LIBRARY_KEY, nextLibrary)
+      this.snapshot = nextLibrary
+      return {
+        ok: true as const,
+        nextActiveSchedule: findActiveSchedule(nextLibrary),
+      }
+    })
+  }
+
+  async clearScheduleData() {
+    return this.enqueueMutation(async () => {
+      const store = this.requireWritableStore()
+      await store.remove(SCHEDULE_LIBRARY_KEY)
+      this.snapshot = null
+      return true
+    })
+  }
+
+  private assertInitialized() {
+    if (!this.initialized) {
+      throw new StorageError('unavailable', '课表存储尚未初始化')
+    }
+  }
+
+  private requireWritableStore() {
+    this.assertInitialized()
+    if (!this.writable || this.storageRuntime === null) {
+      throw this.readOnlyError ?? new StorageError('unavailable', '课表存储当前为只读状态')
+    }
+
+    return this.storageRuntime.store
+  }
+
+  private enqueueMutation<T>(operation: () => T | Promise<T>) {
+    const nextOperation = this.mutationQueue.then(operation, operation)
+    this.mutationQueue = nextOperation.then(
+      () => undefined,
+      () => undefined,
+    )
+    return nextOperation
+  }
 }
 
-export function saveScheduleData(scheduleData: ScheduleData) {
-  const fallbackThemeId = localStorage.getItem('scheduleThemeId') || 'skyBlue'
-  const fallbackSemesterStartDate = localStorage.getItem('semesterStartDate') || '2026-02-23'
+const scheduleRepository = new ScheduleRepository()
 
-  return saveScheduleDataWithOptions(scheduleData, {
-    themeId: fallbackThemeId,
-    semesterStartDate: fallbackSemesterStartDate,
+export async function initializeScheduleStorage(
+  runtime: PersistentStorageRuntime,
+  legacyStorage: StorageLike | null,
+) {
+  await scheduleRepository.initialize(runtime, legacyStorage)
+}
+
+export function initializeScheduleStorageReadOnly(
+  legacyStorage: StorageLike | null,
+  error: StorageError,
+) {
+  scheduleRepository.initializeReadOnly(legacyStorage, error)
+}
+
+export async function saveScheduleData(scheduleData: ScheduleData) {
+  const legacyStorage = getGlobalLegacyStorage()
+  let storedThemeId: string | null = null
+  let storedSemesterStartDate: string | null = null
+  try {
+    storedThemeId = legacyStorage?.getItem(LEGACY_THEME_STORAGE_KEY) ?? null
+    storedSemesterStartDate = legacyStorage?.getItem(LEGACY_SEMESTER_START_DATE_STORAGE_KEY) ?? null
+  } catch {
+    storedThemeId = null
+    storedSemesterStartDate = null
+  }
+
+  const themeId = resolveScheduleImportThemePreset(storedThemeId).id
+  const semesterStartDate = storedSemesterStartDate || LEGACY_DEFAULT_SEMESTER_START_DATE
+
+  return scheduleRepository.saveScheduleDataWithOptions(scheduleData, {
+    themeId,
+    semesterStartDate,
     timeSlotPresetId: 'builtIn',
     preferredName: scheduleData.table.name,
     setActive: true,
@@ -211,181 +516,37 @@ export function saveScheduleData(scheduleData: ScheduleData) {
 }
 
 export function setActiveScheduleTimeSlotPreset(timeSlotPresetId: TimeSlotPresetId) {
-  const library = ensureScheduleLibrary()
-  if (!library) {
-    return false
-  }
-
-  const nextSchedules = library.schedules.map((schedule) => {
-    if (schedule.id !== library.activeScheduleId) {
-      return schedule
-    }
-
-    return {
-      ...schedule,
-      timeSlotPresetId,
-    }
-  })
-
-  const nextLibrary: ScheduleLibrary = {
-    ...library,
-    schedules: nextSchedules,
-  }
-
-  return writeScheduleLibrary(nextLibrary)
+  return scheduleRepository.setActiveScheduleTimeSlotPreset(timeSlotPresetId)
 }
 
 export function saveScheduleDataWithOptions(scheduleData: ScheduleData, options: SaveScheduleOptions) {
-  const library = ensureScheduleLibrary()
-  const nextSchedule = buildSavedSchedule(scheduleData, options)
-
-  const nextLibrary: ScheduleLibrary = library
-    ? {
-        ...library,
-        activeScheduleId: options.setActive === false ? library.activeScheduleId : nextSchedule.id,
-        schedules: [...library.schedules, nextSchedule],
-      }
-    : {
-        version: 1,
-        activeScheduleId: nextSchedule.id,
-        schedules: [nextSchedule],
-      }
-
-  const saved = writeScheduleLibrary(nextLibrary)
-  if (!saved) {
-    return {
-      ok: false,
-      schedule: null,
-    }
-  }
-
-  return {
-    ok: true,
-    schedule: nextSchedule,
-  }
+  return scheduleRepository.saveScheduleDataWithOptions(scheduleData, options)
 }
 
 export function loadScheduleData() {
-  const library = ensureScheduleLibrary()
-  if (!library) {
-    return null
-  }
-
-  const activeSchedule = findActiveSchedule(library)
-  return activeSchedule?.scheduleData ?? null
+  return scheduleRepository.loadScheduleData()
 }
 
 export function loadActiveScheduleEntry() {
-  const library = ensureScheduleLibrary()
-  if (!library) {
-    return null
-  }
-
-  return findActiveSchedule(library)
+  return scheduleRepository.loadActiveScheduleEntry()
 }
 
 export function listSavedSchedules() {
-  const library = ensureScheduleLibrary()
-  if (!library) {
-    return []
-  }
-
-  return library.schedules.map((schedule) => ({
-    id: schedule.id,
-    name: schedule.name,
-    source: schedule.source,
-    themeId: schedule.themeId,
-    semesterStartDate: schedule.semesterStartDate,
-    createdAt: schedule.createdAt,
-    isActive: schedule.id === library.activeScheduleId,
-  }))
+  return scheduleRepository.listSavedSchedules()
 }
 
 export function loadSavedScheduleById(scheduleId: string) {
-  const library = ensureScheduleLibrary()
-  if (!library) {
-    return null
-  }
-
-  return library.schedules.find((schedule) => schedule.id === scheduleId) ?? null
+  return scheduleRepository.loadSavedScheduleById(scheduleId)
 }
 
 export function switchActiveSchedule(scheduleId: string) {
-  const library = ensureScheduleLibrary()
-  if (!library) {
-    return null
-  }
-
-  const target = library.schedules.find((schedule) => schedule.id === scheduleId)
-  if (!target) {
-    return null
-  }
-
-  const nextLibrary: ScheduleLibrary = {
-    ...library,
-    activeScheduleId: target.id,
-  }
-
-  const saved = writeScheduleLibrary(nextLibrary)
-  if (!saved) {
-    return null
-  }
-
-  return target
+  return scheduleRepository.switchActiveSchedule(scheduleId)
 }
 
 export function deleteSavedSchedule(scheduleId: string) {
-  const library = ensureScheduleLibrary()
-  if (!library) {
-    return {
-      ok: false,
-      nextActiveSchedule: null,
-    }
-  }
-
-  const targetExists = library.schedules.some((schedule) => schedule.id === scheduleId)
-  if (!targetExists) {
-    return {
-      ok: false,
-      nextActiveSchedule: findActiveSchedule(library),
-    }
-  }
-
-  const nextSchedules = library.schedules.filter((schedule) => schedule.id !== scheduleId)
-
-  const nextActiveScheduleId =
-    nextSchedules.length === 0
-      ? ''
-      : library.activeScheduleId === scheduleId || !nextSchedules.some((item) => item.id === library.activeScheduleId)
-        ? nextSchedules[0].id
-        : library.activeScheduleId
-
-  const nextLibrary: ScheduleLibrary = {
-    ...library,
-    activeScheduleId: nextActiveScheduleId,
-    schedules: nextSchedules,
-  }
-
-  const saved = writeScheduleLibrary(nextLibrary)
-  if (!saved) {
-    return {
-      ok: false,
-      nextActiveSchedule: findActiveSchedule(library),
-    }
-  }
-
-  return {
-    ok: true,
-    nextActiveSchedule: findActiveSchedule(nextLibrary),
-  }
+  return scheduleRepository.deleteSavedSchedule(scheduleId)
 }
 
 export function clearScheduleData() {
-  try {
-    localStorage.removeItem(SCHEDULE_STORAGE_KEY)
-    localStorage.removeItem(SCHEDULE_LIBRARY_STORAGE_KEY)
-    return true
-  } catch {
-    return false
-  }
+  return scheduleRepository.clearScheduleData()
 }

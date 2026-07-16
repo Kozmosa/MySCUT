@@ -233,7 +233,7 @@ function ScutJwImportPage() {
       debugLog('[ScutJwImport]   - 主题:', themeId, themePreset.name)
       debugLog('[ScutJwImport]   - 学期开始:', nextSemesterStartDate)
 
-      const result = saveScheduleDataWithOptions(scheduleData, {
+      const result = await saveScheduleDataWithOptions(scheduleData, {
         themeId,
         timeSlotPresetId: 'builtIn',
         semesterStartDate: nextSemesterStartDate,
@@ -242,7 +242,7 @@ function ScutJwImportPage() {
       })
 
       if (!result.ok) {
-        throw new Error('课表保存失败，请检查浏览器存储空间')
+        throw new Error('课表保存失败，请稍后重试')
       }
 
       debugLog('[ScutJwImport] 步骤6/6: 持久化学期开始日期')

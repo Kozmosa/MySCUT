@@ -373,28 +373,33 @@ function ScheduleSettingsPage() {
     messageApi.success('课表配色已更新')
   }
 
-  const handleSelectTimeSlotPreset = (presetId: TimeSlotPresetId) => {
+  const handleSelectTimeSlotPreset = async (presetId: TimeSlotPresetId) => {
     if (presetId === timeSlotPresetId) {
       return
     }
 
-    const saved = setActiveScheduleTimeSlotPreset(presetId)
-    if (!saved) {
-      messageApi.error('时间表设置保存失败，请稍后重试')
-      return
-    }
+    try {
+      const saved = await setActiveScheduleTimeSlotPreset(presetId)
+      if (!saved) {
+        messageApi.error('请先导入课表，再设置时间表')
+        return
+      }
 
-    setTimeSlotPresetId(presetId)
-    messageApi.success('时间表设置已更新')
+      setTimeSlotPresetId(presetId)
+      messageApi.success('时间表设置已更新')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '时间表设置保存失败'
+      messageApi.error(errorMessage)
+    }
   }
 
-  const persistImportedSchedule = (
+  const persistImportedSchedule = async (
     scheduleData: ScheduleData,
     semesterDate: string,
     themeId: ScheduleThemeId,
     timeSlotPreset: TimeSlotPresetId = 'builtIn',
   ) => {
-    const result = saveScheduleDataWithOptions(scheduleData, {
+    const result = await saveScheduleDataWithOptions(scheduleData, {
       themeId,
       timeSlotPresetId: timeSlotPreset,
       semesterStartDate: semesterDate,
@@ -403,7 +408,7 @@ function ScheduleSettingsPage() {
     })
 
     if (!result.ok) {
-      messageApi.error('课表保存失败，请检查浏览器存储空间')
+      messageApi.error('课表保存失败，请稍后重试')
       return false
     }
 
@@ -424,7 +429,7 @@ function ScheduleSettingsPage() {
       const nextThemeId = selectedThemePreset.id
       const nextTimeSlotPresetId = resolveNearestCampusTimeSlotPresetId(scheduleData.timeSlots)
       const nextSemesterStartDate = scheduleData.table.startDate || semesterStartDate
-      const isSaved = persistImportedSchedule(scheduleData, nextSemesterStartDate, nextThemeId, nextTimeSlotPresetId)
+      const isSaved = await persistImportedSchedule(scheduleData, nextSemesterStartDate, nextThemeId, nextTimeSlotPresetId)
       if (!isSaved) {
         event.target.value = ''
         return
@@ -452,7 +457,7 @@ function ScheduleSettingsPage() {
       const nextThemeId = getScheduleThemePresetById(parsedQms.themeId).id
       const nextSemesterStartDate = parsedQms.semesterStartDate || semesterStartDate
 
-      const result = saveScheduleDataWithOptions(parsedQms.scheduleData, {
+      const result = await saveScheduleDataWithOptions(parsedQms.scheduleData, {
         themeId: nextThemeId,
         timeSlotPresetId: parsedQms.timeSlotPresetId,
         semesterStartDate: nextSemesterStartDate,
@@ -461,7 +466,7 @@ function ScheduleSettingsPage() {
       })
 
       if (!result.ok) {
-        messageApi.error('QMS 课表保存失败，请检查浏览器存储空间')
+        messageApi.error('QMS 课表保存失败，请稍后重试')
         return
       }
 
@@ -514,7 +519,7 @@ function ScheduleSettingsPage() {
 
       const selectedThemePreset = resolveScheduleImportThemePreset(scheduleThemeId)
       const nextSemesterStartDate = scheduleData.table.startDate || semesterStartDate
-      const isSaved = persistImportedSchedule(scheduleData, nextSemesterStartDate, selectedThemePreset.id)
+      const isSaved = await persistImportedSchedule(scheduleData, nextSemesterStartDate, selectedThemePreset.id)
       if (!isSaved) {
         return
       }
@@ -539,27 +544,32 @@ function ScheduleSettingsPage() {
     setHtmlInputText('')
   }
 
-  const handleSwitchSchedule = (scheduleId: string) => {
-    const switchedSchedule = switchActiveSchedule(scheduleId)
-    if (!switchedSchedule) {
-      messageApi.error('切换课表失败，请稍后重试')
-      return
+  const handleSwitchSchedule = async (scheduleId: string) => {
+    try {
+      const switchedSchedule = await switchActiveSchedule(scheduleId)
+      if (!switchedSchedule) {
+        messageApi.error('未找到需要切换的课表')
+        return
+      }
+
+      setScheduleThemeId(switchedSchedule.themeId as ScheduleThemeId)
+      setScheduleThemeIdState(getScheduleThemePresetById(switchedSchedule.themeId).id)
+
+      if (switchedSchedule.semesterStartDate) {
+        saveSemesterStartDate(switchedSchedule.semesterStartDate)
+        setSemesterStartDate(switchedSchedule.semesterStartDate)
+      }
+
+      refreshScheduleState()
+      setIsScheduleSwitchModalOpen(false)
+      messageApi.success('课表切换成功')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '切换课表失败'
+      messageApi.error(errorMessage)
     }
-
-    setScheduleThemeId(switchedSchedule.themeId as ScheduleThemeId)
-    setScheduleThemeIdState(getScheduleThemePresetById(switchedSchedule.themeId).id)
-
-    if (switchedSchedule.semesterStartDate) {
-      saveSemesterStartDate(switchedSchedule.semesterStartDate)
-      setSemesterStartDate(switchedSchedule.semesterStartDate)
-    }
-
-    refreshScheduleState()
-    setIsScheduleSwitchModalOpen(false)
-    messageApi.success('课表切换成功')
   }
 
-  const handleConfirmDeleteSchedule = () => {
+  const handleConfirmDeleteSchedule = async () => {
     const expectedName = deleteTargetScheduleName.trim()
     const inputName = deleteConfirmText.trim()
 
@@ -578,29 +588,34 @@ function ScheduleSettingsPage() {
       return
     }
 
-    const result = deleteSavedSchedule(deleteTargetScheduleId)
-    if (!result.ok) {
-      messageApi.error('删除课表失败，请稍后重试')
-      return
-    }
-
-    const nextActiveSchedule = result.nextActiveSchedule
-    if (nextActiveSchedule) {
-      setScheduleThemeId(nextActiveSchedule.themeId as ScheduleThemeId)
-      setScheduleThemeIdState(getScheduleThemePresetById(nextActiveSchedule.themeId).id)
-
-      if (nextActiveSchedule.semesterStartDate) {
-        saveSemesterStartDate(nextActiveSchedule.semesterStartDate)
-        setSemesterStartDate(nextActiveSchedule.semesterStartDate)
+    try {
+      const result = await deleteSavedSchedule(deleteTargetScheduleId)
+      if (!result.ok) {
+        messageApi.error('未找到需要删除的课表')
+        return
       }
-    }
 
-    refreshScheduleState()
-    setDeleteTargetScheduleId('')
-    setDeleteTargetScheduleName('')
-    setDeleteConfirmText('')
-    setIsScheduleDeleteModalOpen(false)
-    messageApi.success('课表已删除')
+      const nextActiveSchedule = result.nextActiveSchedule
+      if (nextActiveSchedule) {
+        setScheduleThemeId(nextActiveSchedule.themeId as ScheduleThemeId)
+        setScheduleThemeIdState(getScheduleThemePresetById(nextActiveSchedule.themeId).id)
+
+        if (nextActiveSchedule.semesterStartDate) {
+          saveSemesterStartDate(nextActiveSchedule.semesterStartDate)
+          setSemesterStartDate(nextActiveSchedule.semesterStartDate)
+        }
+      }
+
+      refreshScheduleState()
+      setDeleteTargetScheduleId('')
+      setDeleteTargetScheduleName('')
+      setDeleteConfirmText('')
+      setIsScheduleDeleteModalOpen(false)
+      messageApi.success('课表已删除')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '删除课表失败'
+      messageApi.error(errorMessage)
+    }
   }
 
   const handleConfirmExportScheduleTarget = () => {

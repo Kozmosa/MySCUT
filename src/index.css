@@ -1307,3 +1307,12 @@ body {
   font-size: 13px;
   color: var(--text-secondary);
 }
+.storage-status-banner {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 1200;
+  width: min(calc(100vw - 24px), 560px);
+  transform: translateX(-50%);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+}

@@ -2,6 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import AppRoutes from './app/routes'
 import { useHardwareBackButton } from './platform/capacitor/useHardwareBackButton'
 import { useAndroidViewportInset } from './platform/capacitor/useAndroidViewportInset'
+import { StorageStatusBanner } from './platform/storage/StorageRuntimeProvider'
 
 function App() {
   useHardwareBackButton()
@@ -14,6 +15,7 @@ function App() {
 
   return (
     <div className='app-shell'>
+      <StorageStatusBanner />
       <main
         className={`page-content ${isMineDetailPage ? 'page-content--fullscreen' : ''} ${isCoursesPage ? 'page-content--courses' : ''} ${isManualPage ? 'page-content--manual' : ''}`}
       >

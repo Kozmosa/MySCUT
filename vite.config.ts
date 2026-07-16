@@ -14,6 +14,19 @@ export default defineConfig(({ mode }) => {
 
   const plugins = [react()]
 
+  if (targetPlatform === 'web') {
+    plugins.push(
+      viteStaticCopy({
+        targets: [
+          {
+            src: 'node_modules/sql.js/dist/sql-wasm.wasm',
+            dest: 'assets',
+          },
+        ],
+      }),
+    )
+  }
+
   if (shouldBundlePdfLocalCMap) {
     plugins.push(
       viteStaticCopy({
