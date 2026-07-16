@@ -48,6 +48,7 @@
 
 - `--asset-source r2`：
   - 发版脚本会读取 R2 配置并上传 APK/IPA 到对象存储。
+  - 同时上传 `releases/v<version>/versions.json` 和稳定入口 `releases/versions.json`。
   - `versions.json` 的 `assets.apk` / `assets.ipa` 写为数组结构，包含 `r2` 与 `github` 双源。
 - 未传 `--asset-source`：
   - 默认仅写 `github` 源（同样使用数组结构，便于统一消费）。
@@ -80,6 +81,7 @@
 - iOS 产物：`qmm-v<version>.ipa`（按选择平台可选）。
 - 元数据：`versions.json`（始终参与发布）。
 - APK/IPA 只随主仓 GitHub Release（以及显式启用时的 R2）发布，不再复制或提交到手册子模块。
+- R2 模式下，`latest.assets.versions` 指向稳定清单，具体版本条目指向对应版本快照。
 - `versions.json` 的 `assets` 字段：
   - 始终包含 `versions`。
   - 仅在选中对应平台时写入 `apk` / `ipa`。

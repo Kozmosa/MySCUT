@@ -220,6 +220,9 @@ BUILD_FULL_STRICT=1 BUILD_FULL_REQUIRED=web,android npm run build:full
    for each prepared asset:
      create S3Client → PutObjectCommand(Bucket, Key, Body)
      → 路径: releases/v<version>/qmm-v<version>.apk
+   upload versions.json:
+     → releases/v<version>/versions.json（版本快照）
+     → releases/versions.json（稳定更新入口）
 
 2. 写入 Release Note
    if (--note 已传):
