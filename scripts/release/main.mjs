@@ -1,8 +1,6 @@
-import { extname } from 'node:path'
-import { versionsJsonPath, VERSION_PATTERN, rootDir } from './constants.mjs'
+import { VERSION_PATTERN, rootDir } from './constants.mjs'
 import { prepareAndroidReleaseAsset, findLatestIpa, prepareIosReleaseAsset } from './assets.mjs'
 import { ensureMainBranch, ensureTagNotExists, stageCommitAndTag } from './gitFlow.mjs'
-import { syncLatestAssetsToManual, ensureManualMainBranch, commitAndPushManualAssets } from './manualAssets.mjs'
 import { writeReleaseNoteFile } from './notes.mjs'
 import { parseReleaseOptions } from './options.mjs'
 import { askHidden, askText, askYesNo } from './prompt.mjs'
@@ -179,18 +177,6 @@ async function main() {
   if (noteFilePath) {
     console.log(`Prepared release note: ${noteFilePath}`)
   }
-
-  console.log('Syncing latest release assets to manual root-assets...')
-  ensureManualMainBranch()
-  const androidAssetPath = preparedAssets.find((filePath) => extname(filePath).toLowerCase() === '.apk') || ''
-  syncLatestAssetsToManual({
-    apkPath: androidAssetPath,
-    versionsPath: versionsJsonPath,
-  })
-  commitAndPushManualAssets({
-    version: nextVersion,
-    hasApk: Boolean(androidAssetPath),
-  })
 
   stageCommitAndTag({
     version: nextVersion,
