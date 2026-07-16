@@ -29,8 +29,12 @@ import {
   sanitizeScheduleForExport,
   type ExportSanitizeOptions,
 } from '../../../core/schedule/export'
-import { getScheduleThemePresetById, SCHEDULE_THEME_PRESETS, type ScheduleThemeId } from '../../../core/schedule/themePresets'
-import { resolveNearestPresetThemeIdForWakeup } from '../../../core/schedule/themeMatcher'
+import {
+  getScheduleThemePresetById,
+  resolveScheduleImportThemePreset,
+  SCHEDULE_THEME_PRESETS,
+  type ScheduleThemeId,
+} from '../../../core/schedule/themePresets'
 import {
   getTimeSlotPresetName,
   resolveNearestCampusTimeSlotPresetId,
@@ -248,6 +252,12 @@ function ScheduleSettingsPage() {
   }
 
   const handleImportScutJwEntry = () => {
+    const selectedThemePreset = resolveScheduleImportThemePreset(scheduleThemeId)
+    if (!setScheduleThemeId(selectedThemePreset.id)) {
+      messageApi.error('课表配色保存失败，请稍后重试')
+      return
+    }
+
     setIsImportModalOpen(false)
     navigate('/mine/import-scut-jw')
   }
@@ -410,7 +420,8 @@ function ScheduleSettingsPage() {
     try {
       const content = await file.text()
       const scheduleData = parseWakeupScheduleText(content)
-      const nextThemeId = resolveNearestPresetThemeIdForWakeup(scheduleData)
+      const selectedThemePreset = resolveScheduleImportThemePreset(scheduleThemeId)
+      const nextThemeId = selectedThemePreset.id
       const nextTimeSlotPresetId = resolveNearestCampusTimeSlotPresetId(scheduleData.timeSlots)
       const nextSemesterStartDate = scheduleData.table.startDate || semesterStartDate
       const isSaved = persistImportedSchedule(scheduleData, nextSemesterStartDate, nextThemeId, nextTimeSlotPresetId)
@@ -425,9 +436,8 @@ function ScheduleSettingsPage() {
 
       saveSemesterStartDate(nextSemesterStartDate)
       setSemesterStartDate(nextSemesterStartDate)
-      const matchedThemeName = getScheduleThemePresetById(nextThemeId).name
       const matchedTimeSlotName = getTimeSlotPresetName(nextTimeSlotPresetId)
-      messageApi.success(`课表导入成功，已自动匹配配色：${matchedThemeName}，时间表：${matchedTimeSlotName}`)
+      messageApi.success(`课表导入成功，已应用配色：${selectedThemePreset.name}，自动匹配时间表：${matchedTimeSlotName}`)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '课表导入失败'
       messageApi.error(errorMessage)
@@ -502,15 +512,16 @@ function ScheduleSettingsPage() {
         fallbackSemesterStartDate: semesterStartDate,
       })
 
+      const selectedThemePreset = resolveScheduleImportThemePreset(scheduleThemeId)
       const nextSemesterStartDate = scheduleData.table.startDate || semesterStartDate
-      const isSaved = persistImportedSchedule(scheduleData, nextSemesterStartDate, scheduleThemeId)
+      const isSaved = persistImportedSchedule(scheduleData, nextSemesterStartDate, selectedThemePreset.id)
       if (!isSaved) {
         return
       }
 
       saveSemesterStartDate(nextSemesterStartDate)
       setSemesterStartDate(nextSemesterStartDate)
-      messageApi.success('华工教务课表导入成功')
+      messageApi.success(`华工教务课表导入成功，已应用配色：${selectedThemePreset.name}`)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '华工教务课表导入失败'
       messageApi.error(errorMessage)

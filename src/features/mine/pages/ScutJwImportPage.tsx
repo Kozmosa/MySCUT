@@ -7,7 +7,8 @@ import { useNavigate } from 'react-router-dom'
 import { CircleIconButton } from '../../../components/buttons/CircleIconButton'
 import { parseScutScheduleHtml } from '../../../core/schedule/importScutHtml'
 import { saveScheduleDataWithOptions } from '../../../core/schedule/storage'
-import { getScheduleThemePreset } from '../../../core/schedule/themeStorage'
+import { resolveScheduleImportThemePreset } from '../../../core/schedule/themePresets'
+import { getScheduleThemeId } from '../../../core/schedule/themeStorage'
 import { getSemesterStartDate, saveSemesterStartDate } from '../../../core/scheduleSettings'
 
 // Override via localStorage for testing against mock server:
@@ -224,7 +225,7 @@ function ScutJwImportPage() {
         debugLog(`[ScutJwImport]   lesson[${i}]: day=${lesson.day} node=${lesson.startNode}-${lesson.endNode} week=${lesson.startWeek}-${lesson.endWeek} step=${lesson.weekStep} room=${lesson.room} teacher=${lesson.teacher}`)
       })
 
-      const themePreset = getScheduleThemePreset()
+      const themePreset = resolveScheduleImportThemePreset(getScheduleThemeId())
       const themeId = themePreset.id
       const nextSemesterStartDate = scheduleData.table.startDate || fallbackSemesterStartDate
 

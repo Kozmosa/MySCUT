@@ -96,3 +96,7 @@ export const SCHEDULE_THEME_PRESETS: ScheduleThemePreset[] = [
 export function getScheduleThemePresetById(themeId: string) {
   return SCHEDULE_THEME_PRESETS.find((preset) => preset.id === themeId) ?? SCHEDULE_THEME_PRESETS[0]
 }
+
+export function resolveScheduleImportThemePreset(themeId: string | null | undefined) {
+  return getScheduleThemePresetById(themeId ?? '')
+}
