@@ -34,7 +34,14 @@ import { resolveScheduleTimeSlotsByPreset } from '../../core/schedule/timeSlotPr
 import { getScheduleThemePreset } from '../../core/schedule/themeStorage'
 import type { ScheduleThemePreset } from '../../core/schedule/themePresets'
 import type { ScheduleLesson, TimeSlotPresetId, WakeupTimeSlot, WeekCellCourse } from '../../core/schedule/types'
+import {
+  clearRememberedScheduleWeek,
+  getScheduleWeekNumber,
+  rememberScheduleWeek,
+  resolveInitialScheduleWeekView,
+} from '../../core/schedule/weekNavigation'
 import { getSemesterStartDate } from '../../core/scheduleSettings'
+import ReturnToCurrentWeekButton from './ReturnToCurrentWeekButton'
 
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
 const MAX_LESSON_COUNT = 12
@@ -284,24 +291,6 @@ function getScheduleLessonCount(lessonCountFromTable: number, timeSlots: WakeupT
   return Math.min(MAX_LESSON_COUNT, maxNode)
 }
 
-function getWeekNumber(date: Date, startDateText: string) {
-  const semesterStart = parseLocalDate(startDateText)
-  if (!semesterStart) {
-    return 1
-  }
-
-  const semesterStartAtMidnight = new Date(
-    semesterStart.getFullYear(),
-    semesterStart.getMonth(),
-    semesterStart.getDate(),
-  )
-  const dateAtMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const differenceMs = dateAtMidnight.getTime() - semesterStartAtMidnight.getTime()
-  const week = Math.floor(differenceMs / (7 * 24 * 60 * 60 * 1000)) + 1
-
-  return Math.max(1, week)
-}
-
 function getColorFromWakeup(color: string, fallbackColor: string) {
   if (!color) {
     return fallbackColor
@@ -488,7 +477,6 @@ function CoursesPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [messageApi, contextHolder] = message.useMessage()
-  const [weekOffset, setWeekOffset] = useState(0)
   const [swipeDirection, setSwipeDirection] = useState<'prev' | 'next' | null>(null)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
   const [touchStartY, setTouchStartY] = useState<number | null>(null)
@@ -528,11 +516,42 @@ function CoursesPage() {
   const currentDate = new Date()
   const semesterStartDate = getSemesterStartDate()
   const dateText = getCurrentDateText(currentDate)
-  const baseWeek = getWeekNumber(currentDate, semesterStartDate)
-  const currentWeek = Math.max(1, baseWeek + weekOffset)
-  const minWeekOffset = 1 - baseWeek
+  const inferredCurrentWeek = getScheduleWeekNumber(currentDate, semesterStartDate)
+  const scheduleWeekViewId = activeScheduleEntry?.id ?? 'no-active-schedule'
+  const [weekView, setWeekView] = useState(() =>
+    resolveInitialScheduleWeekView(scheduleWeekViewId, semesterStartDate, inferredCurrentWeek),
+  )
+  const weekViewContextRef = useRef(`${scheduleWeekViewId}:${semesterStartDate}`)
+  const currentWeek = weekView.week
 
   const swipeState = useMemo(() => createSwipeState(currentWeek, swipeDirection), [currentWeek, swipeDirection])
+
+  useEffect(() => {
+    const nextWeekViewContext = `${scheduleWeekViewId}:${semesterStartDate}`
+    if (weekViewContextRef.current !== nextWeekViewContext) {
+      weekViewContextRef.current = nextWeekViewContext
+      setWeekView(resolveInitialScheduleWeekView(scheduleWeekViewId, semesterStartDate, inferredCurrentWeek))
+      return
+    }
+
+    if (weekView.week === inferredCurrentWeek) {
+      if (weekView.hasManualOverride) {
+        clearRememberedScheduleWeek(scheduleWeekViewId)
+        setWeekView({
+          week: inferredCurrentWeek,
+          hasManualOverride: false,
+        })
+      }
+      return
+    }
+
+    if (!weekView.hasManualOverride) {
+      setWeekView({
+        week: inferredCurrentWeek,
+        hasManualOverride: false,
+      })
+    }
+  }, [inferredCurrentWeek, scheduleWeekViewId, semesterStartDate, weekView.hasManualOverride, weekView.week])
 
   const activeTimeSlots = useMemo(() => {
     if (!scheduleData) {
@@ -617,6 +636,22 @@ function CoursesPage() {
 
   const getWeekRenderData = (weekNumber: number) => weekRenderDataCache.get(weekNumber) ?? EMPTY_WEEK_RENDER_DATA
 
+  const applyViewedWeek = (nextWeek: number) => {
+    const normalizedWeek = Math.max(1, nextWeek)
+    const hasManualOverride = normalizedWeek !== inferredCurrentWeek
+
+    if (hasManualOverride) {
+      rememberScheduleWeek(scheduleWeekViewId, semesterStartDate, normalizedWeek)
+    } else {
+      clearRememberedScheduleWeek(scheduleWeekViewId)
+    }
+
+    setWeekView({
+      week: normalizedWeek,
+      hasManualOverride,
+    })
+  }
+
   const handleTouchStart = (event: TouchEvent<HTMLElement>) => {
     if (isAnimating) {
       return
@@ -663,7 +698,7 @@ function CoursesPage() {
 
     setIsDragging(true)
 
-    if (deltaX > 0 && weekOffset <= minWeekOffset) {
+    if (deltaX > 0 && currentWeek <= 1) {
       setDragOffsetX(deltaX * 0.35)
       return
     }
@@ -710,7 +745,7 @@ function CoursesPage() {
     }
 
     if (deltaX > 0) {
-      if (weekOffset <= minWeekOffset) {
+      if (currentWeek <= 1) {
         setIsResetting(true)
         return
       }
@@ -738,13 +773,8 @@ function CoursesPage() {
       return
     }
 
-    setWeekOffset((previousOffset) => {
-      if (swipeDirection === 'prev') {
-        return Math.max(minWeekOffset, previousOffset - 1)
-      }
-
-      return previousOffset + 1
-    })
+    const nextWeek = swipeDirection === 'prev' ? Math.max(1, currentWeek - 1) : currentWeek + 1
+    applyViewedWeek(nextWeek)
 
     setSwipeDirection(null)
     setIsAnimating(false)
@@ -769,7 +799,7 @@ function CoursesPage() {
   const trackStyle = isDragging ? { transform: `translateX(calc(-33.3333% + ${dragOffsetX}px))` } : undefined
 
   const handleGoPrevWeek = () => {
-    if (isAnimating || isDragging || weekOffset <= minWeekOffset) {
+    if (isAnimating || isDragging || currentWeek <= 1) {
       return
     }
 
@@ -784,6 +814,17 @@ function CoursesPage() {
 
     setIsAnimating(true)
     setSwipeDirection('next')
+  }
+
+  const handleReturnToCurrentWeek = () => {
+    if (isAnimating || isDragging) {
+      return
+    }
+
+    setSwipeDirection(null)
+    setIsResetting(false)
+    setDragOffsetX(0)
+    applyViewedWeek(inferredCurrentWeek)
   }
 
   const handleOpenCourseDetail = (courses: WeekCellCourse[], day: number, node: number) => {
@@ -974,6 +1015,13 @@ function CoursesPage() {
           </div>
         </div>
       </section>
+
+      {currentWeek !== inferredCurrentWeek && (
+        <ReturnToCurrentWeekButton
+          inferredCurrentWeek={inferredCurrentWeek}
+          onReturn={handleReturnToCurrentWeek}
+        />
+      )}
 
       <Modal
         title={`课程详情 · 星期${selectedWeekday} 第${selectedNode}节`}

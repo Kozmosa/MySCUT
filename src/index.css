@@ -179,6 +179,74 @@ body {
   gap: 8px;
 }
 
+.return-current-week-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--bottom-nav-height) + 16px);
+  z-index: 18;
+  min-width: 132px;
+  height: 48px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--text-on-accent) 24%, transparent);
+  border-radius: 999px;
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
+  box-shadow: 0 10px 28px rgba(22, 119, 255, 0.3);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--accent-primary) 34%, transparent);
+  font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  animation: return-current-week-fab-enter 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.return-current-week-fab .anticon {
+  font-size: 17px;
+}
+
+.return-current-week-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(22, 119, 255, 0.36);
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--accent-primary) 40%, transparent);
+}
+
+.return-current-week-fab:active {
+  transform: scale(0.97);
+}
+
+.return-current-week-fab:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+}
+
+.return-current-week-fab.is-dragging {
+  cursor: grabbing;
+  transform: scale(1.03);
+  transition: none;
+}
+
+@keyframes return-current-week-fab-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .app-icon-button-square:active {
   background: var(--button-soft-bg-active);
 }
@@ -778,6 +846,7 @@ body {
 .theme-transitioning .mine-detail-card-title,
 .theme-transitioning .mine-detail-card-description,
 .theme-transitioning .mine-update-check-button,
+.theme-transitioning .return-current-week-fab,
 .theme-transitioning .schedule-settings-page,
 .theme-transitioning .schedule-settings-header,
 .theme-transitioning .schedule-settings-title,
@@ -792,6 +861,13 @@ body {
 .theme-transitioning .course-detail-name,
 .theme-transitioning .course-detail-line {
   transition: background-color 240ms ease, color 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .return-current-week-fab {
+    animation: none;
+    transition: none;
+  }
 }
 
 .mine-theme-toggle-meta {
