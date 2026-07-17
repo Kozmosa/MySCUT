@@ -9,6 +9,7 @@ import { getUseLocalManual, setUseLocalManual } from '../../core/manual/manualSo
 import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../core/navigation/animatedBack'
 import { GLOBAL_THEME_FAMILY_OPTIONS } from '../../core/theme/globalThemePresets'
 import { APP_TODO_ITEMS, MANUAL_TODO_ITEMS } from '../../generated/todoSnapshot'
+import { THIRD_PARTY_LICENSES } from '../../generated/thirdPartyLicenses'
 import { useGlobalTheme } from '../../platform/web/theme/GlobalThemeProvider'
 import { checkForAppUpdate } from '../../services/update'
 
@@ -64,23 +65,6 @@ const DETAIL_ITEMS_MAP: Record<string, Array<{ title: string; description: strin
     },
   ],
 }
-
-const LICENSE_ITEMS = [
-  { name: 'my-scut-frontend', license: '未单独声明（private）' },
-  { name: '@capacitor/android', license: 'MIT' },
-  { name: '@capacitor/app', license: 'MIT' },
-  { name: '@capacitor/cli', license: 'MIT' },
-  { name: '@capacitor/core', license: 'MIT' },
-  { name: '@capacitor/status-bar', license: 'MIT' },
-  { name: '@capacitor/assets', license: 'MIT' },
-  { name: 'antd', license: 'MIT' },
-  { name: 'react', license: 'MIT' },
-  { name: 'react-dom', license: 'MIT' },
-  { name: 'react-router-dom', license: 'MIT' },
-  { name: '@vitejs/plugin-react', license: 'MIT' },
-  { name: 'vite', license: 'MIT' },
-  { name: 'typescript', license: 'Apache-2.0' },
-]
 
 function MineDetailPage({ title }: MineDetailPageProps) {
   const navigate = useNavigate()
@@ -372,9 +356,9 @@ function MineDetailPage({ title }: MineDetailPageProps) {
               <div className='mine-legal-content'>
                 <p>本项目及所引用开源项目许可证如下（以官方仓库声明为准）：</p>
                 <ul className='mine-license-list'>
-                  {LICENSE_ITEMS.map((item) => (
-                    <li key={item.name}>
-                      <span>{item.name}</span>
+                  {THIRD_PARTY_LICENSES.map((item) => (
+                    <li key={`${item.name}@${item.version}`}>
+                      <span>{item.name}@{item.version}</span>
                       <span>{item.license}</span>
                     </li>
                   ))}

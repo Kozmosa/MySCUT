@@ -2,10 +2,26 @@
   "name": "my-scut-frontend",
   "private": true,
   "version": "0.5.0",
+  "description": "A privacy-conscious cross-platform SCUT schedule and campus manual app.",
+  "license": "MIT",
+  "author": "Kozmosa and contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kozmosa/MySCUT.git"
+  },
+  "homepage": "https://github.com/Kozmosa/MySCUT#readme",
+  "bugs": {
+    "url": "https://github.com/Kozmosa/MySCUT/issues"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "packageManager": "npm@11.18.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build:todo-snapshot": "node scripts/generateTodoSnapshot.mjs",
+    "build:licenses": "node scripts/generateThirdPartyLicenses.mjs",
     "release:prepare-manual": "node scripts/prepareReleaseManualSubmodule.mjs",
     "release": "node scripts/release.mjs",
     "build": "npm run build:full",
