@@ -80,6 +80,7 @@ export default defineConfig(({ mode }) => {
     plugins,
     build: {
       outDir,
+      chunkSizeWarningLimit: 1000,
     },
     define: {
       __APP_VERSION__: JSON.stringify(packageJson.version),

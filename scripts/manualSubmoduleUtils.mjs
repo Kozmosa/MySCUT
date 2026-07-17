@@ -41,6 +41,11 @@ export function getPinnedManualCommit() {
 }
 
 export function pullLatestManual() {
+  if (process.env.SKIP_MANUAL_FETCH === '1') {
+    console.log('SKIP_MANUAL_FETCH=1: using the pinned manual checkout')
+    return
+  }
+
   run('git fetch --depth=1 origin main', docsProjectDir, undefined, 120_000)
   run('git switch --detach FETCH_HEAD', docsProjectDir)
 }
