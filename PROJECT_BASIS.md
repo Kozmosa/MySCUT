@@ -1,162 +1,51 @@
 # PROJECT_BASIS
 
-## 项目目标与当前边界
+## 产品目标
 
-- 本项目当前采用：`Yarn + Vite + React + Ant Design`。
+MySCUT 是一个非官方、隐私优先的跨平台校园工具，当前核心职责是：
 
-## LLM 协作与文档目录约定
+- 在用户设备本地导入、管理和展示课表；
+- 为 Web、Android、iOS 和 OpenHarmony 提供尽可能一致的核心能力；
+- 在应用中呈现独立维护的 `survive-in-scut` 校园手册；
+- 保持核心逻辑可测试，并降低未来替换平台 UI 的成本。
 
-- 所有由 LLM 生成或维护的 Markdown 文档，统一放在 `LLM-Working/` 目录中。
-- 文档分为两类：
+项目不运营账户、云同步、遥测或内置 AI 网关。新增此类能力必须先形成明确的产品、安全和隐私决策。
 
-### 1) 每日工作日志 / 进度记录
+## 支持平台
 
-- 命名格式：`YYYYMMDD.md`
-- 示例：`20260225.md`
-- 内容建议包含：
-  - 当日完成项
-  - 当前状态
-  - 阻塞项
-  - 下一步计划
+- Web 与 PWA：Vite SPA，部分原生教务导入能力不可用。
+- Android：主要原生目标，使用 Capacitor。
+- iOS：支持构建与同步，需要 macOS、Xcode 和签名环境。
+- OpenHarmony：实验性目标，复用 Web 应用并通过平台工程承载。
 
-### 2) 持久化约定与说明文档
+平台差异应通过适配层处理，不得把 DOM、Capacitor、SQLite 或系统 API 细节扩散到领域逻辑。
 
-- 用于保存讨论沉淀出的长期有效内容，例如：
-  - 工程规范
-  - 数据结构约定
-  - 接口说明
-  - 领域术语与业务规则
-- 文件名使用语义化全大写下划线命名，示例：
-  - `DATA_STRUCTURE.md`
-  - `API_CONTRACT.md`
-  - `FRONTEND_CONVENTIONS.md`
+## 架构边界
 
-### 3) 技能约定：保存实现文档
+- `src/core/`：平台无关的领域模型、转换、校验和用例。
+- `src/features/`：按功能组织 UI、页面状态与装配逻辑。
+- `src/platform/`：浏览器、Capacitor、持久化和平台生命周期适配。
+- `src/services/`：更新检查等外部 I/O 边界。
+- `src/components/`：跨功能复用的展示组件。
+- `src/generated/`：由脚本生成且可重复构建的源码。
 
-- 技能名：`保存实现文档`
-- 每次完成一个明确实现模块后，必须在 `LLM-Working/` 新增或更新实现说明文档。
-- 文件命名格式：`<实现模块>Impl<MMDD>.md`
-  - 示例：`ThemeImpl0226.md`
-  - `MMDD` 取实现日期（月日）。
-- 文档内容至少包含：
-  - 实现日期
-  - 相关 commit hash（可多个，使用无序列表）
-  - 实现细节（核心改动点、文件位置、关键设计取舍）
-- 建议在文中使用 Obsidian 双链格式，关联 `LLM-Working/` 下其他文档相关章节，便于跳转查阅。
-  - 示例：`[[DATA_STRUCTURE#7. 课表配色方案结构]]`
-  - 示例：`[[ScheduleImpl0226#主要改动点]]`
+UI 组件负责渲染和交互分发；复杂业务规则、持久化和外部请求必须位于可测试的逻辑或适配模块中。类型边界使用显式类型和 `unknown` 收窄，避免 `any`。
 
-## 工程编码风格与规范
+## 数据职责
 
-### 语言与工具
+- 课表、头像、设置和可选 AI 服务凭据默认只保存在当前设备。
+- 教务导入只在用户主动发起时访问用户选择的目标，并将 Cookie 限制在该会话和目标站点语义内。
+- 仓库中的 fixture 必须完全合成，使用明确的 `TEST-*` 标识。
+- 浏览器或平台专属存储必须实现 `src/core/storage` 定义的契约；领域模块不直接依赖具体数据库。
 
-- 主要语言：TypeScript（React TSX）
-- 运行时与构建：Vite
-- 包管理：npm（已提交 `package-lock.json` 保证确定性安装）
-- UI 组件库：Ant Design 5
+## 手册职责与授权边界
 
-### TypeScript 约束（已落地）
+`external/survive-in-scut` 是独立上游 Git 子模块。主仓负责固定提交、构建集成和清晰披露边界，不替上游修改内容或解决授权冲突。MySCUT 的 MIT 许可证不覆盖该子模块；分发要求见 `THIRD_PARTY_NOTICES.md`。
 
-- `strict: true`
-- `noUnusedLocals: true`
-- `noUnusedParameters: true`
-- `noFallthroughCasesInSwitch: true`
-- `moduleResolution: "Bundler"`
-- `jsx: "react-jsx"`
+## 权威技术参考
 
-### 代码风格（当前项目约定）
-
-- 使用 ES Module。
-- 默认使用单引号字符串。
-- 默认不写分号（遵循现有代码风格）。
-- 优先编写函数式 React 组件。
-- 尽量保持组件与页面简洁，避免过早抽象。
-- 非必要不添加注释；仅在复杂、非显而易见逻辑处补充说明。
-- 样式基线：
-  - 入口引入 `antd/dist/reset.css`
-  - 项目全局样式放在 `src/index.css`
-
-### 架构解耦要求
-
-- 编写代码时，必须保证 UI 层与核心业务逻辑良好解耦。
-- 组件职责建议：
-  - 展示组件（UI）：只负责渲染、样式、交互事件分发，不直接承载复杂业务逻辑。
-  - 逻辑层（Core）：通过 hooks / service / domain 模块承载状态管理、数据转换、业务规则与副作用。
-- 禁止在页面组件中堆叠不可复用的重业务逻辑；复杂逻辑应可在 Web UI 之外复用。
-- 设计目标：为后续迁移到 React Native 保留空间，尽可能复用核心逻辑，仅替换平台 UI 实现。
-- 与平台相关能力（DOM、浏览器 API、路由细节）应隔离在适配层，避免污染核心逻辑模块。
-
-## 目录建议
-
-- 推荐在现有最小骨架基础上，逐步演进为以下结构：
-- `src/core/`：平台无关的核心业务逻辑（domain、use cases、数据转换、通用校验）。
-- `src/features/`：按业务域组织功能模块，每个 feature 包含该域的 UI、hooks、状态、组装逻辑。
-- `src/platform/web/`：Web 平台适配层（浏览器 API、路由实现、Web 专属集成）。
-- `src/components/`：跨 feature 的通用展示组件（尽量保持“哑组件”属性）。
-- `src/services/`：对外部系统访问封装（HTTP client、缓存、鉴权注入等）。
-- `src/types/`：共享类型定义。
-
-> 建议原则：核心业务逻辑默认放 `src/core/`，UI 层只做装配与展示，平台差异统一收口到 `src/platform/*`。
-
-## 技术栈与文档链接（LLMS/Reference）
-
-> 说明：优先维护带 `llms.txt` 的链接；如官方未提供 `llms.txt`，记录权威 reference 链接。
-
-- Ant Design（UI 组件库）
-  - llms: `https://ant.design/llms.txt`
-- React（核心库）
-  - reference: `https://react.dev/reference/react`
-- Vite（构建器）
-  - llms: `https://vite.dev/llms.txt`
-  - llms-full: `https://vite.dev/llms-full.txt`
-- HarmonyOS（OpenHarmony / ArkTS）
-  - reference: `https://developer.huawei.com/consumer/cn/doc/`
-
-## 开发与验证命令
-
-- 安装依赖：`npm install`（使用已提交的 `package-lock.json`）
-- 本地开发：`yarn dev`
-- 生产构建（全平台容错汇总）：`yarn build`
-- Web 构建（含 docs，输出到 `dist/web`）：`yarn build:web`
-- PWA 构建（纯 Web 发布产物，输出到 `dist/pwa`）：`yarn build:pwa`
-- Android Web 构建并同步原生工程：`yarn build:android`（输出到 `dist/android`）
-- iOS Web 构建并同步原生工程：`yarn build:ios`（输出到 `dist/ios`）
-- OHOS Web 构建并同步到 `resfile/apps/<bundleName>/www`：`yarn build:ohos-web`（输出到 `dist/ohos`）
-- 查看本地 OHOS 构建产物（`.hap/.app`）：`yarn build:ohos-artifacts`
-- 本地预览：`yarn preview`
-- PWA 本地预览（先构建再以 `dist/pwa` 启动预览服务）：`yarn preview:pwa`
-
-## OHOS 调试约定（本地）
-
-- 目标：优先用命令行抓取 OHOS WebView 精确日志，避免只看 IDE 控制台噪音日志。
-- 不在仓库标准文档中记录开发机绝对路径；本地环境变量与 SDK 路径通过本地脚本管理。
-- 统一入口：在仓库本地执行 `scripts/local/ohos-dev.ps1` 初始化 OHOS CLI 环境（仅当前会话生效）。
-- 可选辅助：`scripts/local/ohos-debug.ps1` 作为常用日志抓取封装。
-- `scripts/local/` 目录用于本地调试脚本，不纳入版本控制。
-
-- 推荐日志抓取方式（关注 WebView 加载链路）：
-
-```powershell
-hdc shell hilog | Select-String -Pattern "ARKWEB-CONSOLE|OnLoadError|OnRequestError|ResourceURLLoader|NWebHandlerDelegate"
-```
-
-- 白屏问题定位优先级：
-  - 第一优先：`OnLoadError` / `OnRequestError` 的完整行（必须包含 URL 与 errorCode）。
-  - 第二优先：`ARKWEB-CONSOLE` 的 JS/CSS 加载或运行时报错。
-  - 第三优先：`ResourceURLLoader` 的资源命中与状态码。
-- 运行态排查结论必须基于上述关键日志，不使用系统服务噪音日志（如 thermal / sceneboard / appspawn）直接下结论。
-
-## Git 提交信息约定
-
-- commit 首行使用 Conventional Commits，使用英文简要描述主要变更。
-- 建议格式：`feat: ...` / `fix: ...` / `refactor: ...` / `docs: ...` / `chore: ...`。
-- commit message 正文使用中文，说明本次修改细节、影响范围与必要的背景。
-- 正文必须使用 Markdown 无序列表（`- `）分点描述，优先说明“为什么改”和“改了什么”。
-- 整个 commit message 应按 Markdown 书写，并尽量减少格式使用；除纯文本与无序列表外，尽量少用或不用加粗、斜体等格式。
-- 需要换行时，使用多个 `-m` 参数或 heredoc 方式提交；不要在字符串中写字面量 `\n` 作为换行。
-
-## 变更维护原则
-
-- 修改工程约定时，优先更新本文件。
-- 新增长期有效规范时，在 `LLM-Working/` 下新增对应主题文档，并在本文件中补充索引。
-- 每次会话结束建议同步当天 `YYYYMMDD.md`，保证进度连续可追踪。
+- React: https://react.dev/reference/react
+- Ant Design: https://ant.design/llms.txt
+- Vite: https://vite.dev/llms.txt
+- Capacitor: https://capacitorjs.com/docs
+- OpenHarmony: https://developer.huawei.com/consumer/cn/doc/

@@ -1,180 +1,65 @@
 # AGENTS.md
 
-This guide is for coding agents working in this repository.
-It reflects the current repository state and local conventions.
+本文件只描述仓库操作规则。产品目标、架构边界和数据职责以 `PROJECT_BASIS.md` 为准。
 
-## 0) Mandatory Source of Truth
+## 环境与包管理
 
-- `PROJECT_BASIS.md` is a required, higher-priority local convention document.
-- Agents must follow its architecture conventions, tech stack conventions, and coding style conventions.
-- If this file and `PROJECT_BASIS.md` ever diverge, follow `PROJECT_BASIS.md` first and then update this file.
-- Agents should frequently consult the official references listed in `PROJECT_BASIS.md` (especially `llms.txt` links) to improve implementation correctness before and during coding.
+- 使用 Node.js 22.13.0 或更高版本，推荐 Node 22 LTS。
+- npm 是唯一包管理器，`package-lock.json` 是依赖解析的唯一来源。
+- 全新或 CI 安装使用 `npm ci`。
+- 只有修改依赖时使用 `npm install`，并提交同步变化的 `package.json` 与 `package-lock.json`。
+- 不要生成或提交其他包管理器锁文件。
 
-## 1) Current Project Snapshot
+## 常用命令
 
-- Stack: Vite 5 + React 18 + TypeScript + Ant Design 5.
-- App type: minimal frontend SPA.
-- Entry: `src/main.tsx`.
-- Root component: `src/App.tsx`.
-- Global stylesheet: `src/index.css`.
-- Build config: `vite.config.ts`.
-- TS project refs: `tsconfig.json` -> `tsconfig.app.json`, `tsconfig.node.json`.
+```bash
+npm run dev
+npm run typecheck
+npm test
+npm run build:app
+npm run check:docs
+npm run audit:public-data
+npm run check
+```
 
-## 2) Package Manager
+单个 Vitest 文件或用例：
 
-- The project ships a committed `package-lock.json` for deterministic installs.
-- Historically Yarn was preferred, but npm lockfile is the source of truth.
-- Use `npm install` for dependency management.
-- If you need Yarn, remove `package-lock.json` first and regenerate `yarn.lock`.
-- Never mix package managers — pick one per checkout.
+```bash
+npm exec vitest -- path/to/file.test.ts
+npm exec vitest -- path/to/file.test.ts -t "test name"
+```
 
-## 3) Build / Run / Lint / Test Commands
-### Install
-- `npm install` (uses committed `package-lock.json`)
-- For clean reinstall: `rm -rf node_modules && npm install`
+## 构建目标与风险
 
-### Development
-- `yarn dev`
-- Runs Vite dev server.
+- `build:app` 只构建主应用到 `dist/app`，不拉取或构建手册，是基础构建验证。
+- `build:web` 会初始化并尝试拉取手册子模块、安装手册依赖、生成手册快照并写入 `dist/web`；它依赖网络和上游状态，不是 deterministic build。
+- `build:pwa` 生成 PWA 发布产物。
+- `build:android`、`build:ios` 和 Capacitor sync 可能修改跟踪的原生工程文件；运行前后必须检查 `git status`。
+- `build:ohos-web` 可能写入 OpenHarmony 工程资源目录。
+- `build:full` 默认只汇总各目标结果并容忍失败，不能作为成功证明。需要严格验证时使用对应目标构建，或显式设置 `BUILD_FULL_STRICT=1` 与 `BUILD_FULL_REQUIRED`。
 
-### Build
-- `yarn build`
-- Executes multi-platform build aggregation (`web/android/ios/ohos`) and tolerates missing toolchains per target.
-- For deterministic web-only validation, use `yarn build:web`.
-- For PWA web publishing output, use `yarn build:pwa`.
-- Platform outputs:
-  - `dist/web`
-  - `dist/pwa`
-  - `dist/android`
-  - `dist/ios`
-  - `dist/ohos`
+按变更风险选择验证范围：普通核心逻辑至少运行 `npm run check`；平台相关变更再运行相应严格构建和设备烟雾测试。
 
-### Preview
-- `yarn preview`
-- `yarn preview:pwa`
+## 代码约定
 
-### Lint
-- No lint tooling is configured yet.
-- Do not assume `yarn lint` exists.
-- If linting is requested, add ESLint (and scripts/config) first.
+- TypeScript/TSX 使用单引号，不写分号；CSS 保留分号。
+- 保持 `strict`、`noUnusedLocals`、`noUnusedParameters` 和 `noFallthroughCasesInSwitch` 通过。
+- 使用函数组件；UI 只负责展示与事件分发，业务逻辑放入 core、service、hook 或平台适配层。
+- 不静默吞掉异常；逻辑层提供可行动错误，用户文案留在 UI 层。
+- 保留 `src/main.tsx` 中的 `antd/dist/reset.css`，避免无必要的全局样式覆盖。
 
-### Test
-- Vitest is configured.
-- Default command: `yarn test`
+## 隐私、发布与文档
 
-### Running a Single Test (Important)
-- Single-test execution uses Vitest patterns:
-  - `yarn vitest path/to/file.test.ts`
-  - `yarn vitest path/to/file.test.ts -t "test name"`
+- 不得提交真实课表、个人标识、群号、Cookie、Token、私钥、开发机绝对路径或其他凭据。
+- APK、IPA 和发布中间产物不得进入 Git；使用 `artifacts/release/`、GitHub Releases 和可选 R2。
+- 修改公开 fixture 后必须运行 `npm run audit:public-data`。
+- `docs/` 保存当前权威技术文档，`LLM-Working/` 仅为历史归档。
+- 普通实现由 commit 和 Pull Request 记录，不要求创建 Impl 文档，也不要求文档记录自身 commit hash。
+- 只有长期有效且需要解释取舍的决策进入 `docs/adr/`。
+- `.agents/skills` 是技能源，`.claude/skills` 是生成镜像；不得双份手工修改，`npm run check:docs` 会检查一致性。
 
-## 4) TypeScript and Compiler Constraints
+## Git 工作流
 
-From `tsconfig.app.json` and `tsconfig.node.json`:
-
-- `strict: true`
-- `noUnusedLocals: true`
-- `noUnusedParameters: true`
-- `noFallthroughCasesInSwitch: true`
-- `moduleResolution: "Bundler"`
-- `jsx: "react-jsx"`
-- `noEmit: true`
-
-Agent implications:
-
-- Avoid `any`; prefer explicit and narrow types.
-- Remove unused declarations while editing.
-- Keep switch logic exhaustive or safely guarded.
-- Keep app code under `src/`; keep Vite/node config types at root config files.
-
-## 5) Code Style Guidelines
-
-### Formatting
-- Use single quotes in TS/TSX imports and strings.
-- Do not add semicolons in TS/TSX.
-- Keep existing CSS style (semicolons in CSS are fine).
-- Prefer small, readable components and avoid premature abstraction.
-
-### Imports
-- Use ESM imports only.
-- Keep import order stable:
-  1. React / third-party packages
-  2. Style side-effect imports (e.g., `antd/dist/reset.css`)
-  3. Local imports
-- Avoid deep and unnecessary re-export chains.
-
-### React / TSX
-- Prefer function components.
-- Component names use PascalCase.
-- Custom hooks use `useXxx` naming.
-- Keep heavy business logic out of presentational components.
-
-### Naming
-- Variables and functions: camelCase.
-- Types/interfaces/type aliases: PascalCase.
-- True constants: UPPER_SNAKE_CASE.
-- React component file names: PascalCase where appropriate.
-
-### Types
-- Model domain structures with explicit types.
-- Prefer unions/literals over broad primitives where possible.
-- Prefer `unknown` at boundaries, then narrow.
-- Extract shared types when reuse becomes clear.
-
-### Error Handling
-- Fail fast on impossible states.
-- Do not silently swallow exceptions.
-- Surface actionable error information in logic layers.
-- Keep end-user messaging in the UI layer.
-
-### Comments
-- Do not add comments for obvious code.
-- Add brief comments only for non-obvious constraints or edge cases.
-
-## 6) Architecture and Decoupling
-
-- Preserve UI/core decoupling from `PROJECT_BASIS.md`.
-- UI components should focus on rendering and interaction dispatch.
-- Reusable business logic belongs in hooks/services/domain modules.
-- Isolate browser/platform-specific APIs behind adapters.
-- Keep code portable enough for future React Native-oriented reuse of core logic.
-
-Suggested structure as the app grows:
-
-- `src/core/` core domain logic
-- `src/features/` feature-sliced UI + state
-- `src/platform/web/` web adapters
-- `src/components/` shared presentational components
-- `src/services/` external I/O wrappers
-- `src/types/` shared type definitions
-
-## 7) Styling Baseline
-
-- Keep `antd/dist/reset.css` imported in `src/main.tsx`.
-- Keep global baseline styles in `src/index.css`.
-- Avoid broad global overrides unless there is a clear reason.
-
-## 8) Documentation Agreement
-
-- LLM-authored docs belong in `LLM-Working/`.
-- Daily logs: `YYYYMMDD.md`.
-- Persistent docs: uppercase underscore names (example: `API_CONTRACT.md`).
-- When conventions change, update docs in the same task.
-- Follow skill `保存实现文档` from `PROJECT_BASIS.md`:
-  - Implementation doc filename: `<Module>Impl<MMDD>.md` (example: `ThemeImpl0226.md`).
-  - Must include implementation date, related commit hash(es), and implementation details.
-  - Prefer Obsidian-style double links to related `LLM-Working/` sections.
-
-## 9) Cursor / Copilot Rules
-
-- Checked for `.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`.
-- None were found in this repository at the time this file was written.
-- If these files appear later, treat them as higher-priority local instructions.
-
-## 10) Practical Agent Workflow
-
-- Before edits: inspect touched files for existing patterns.
-- During edits: keep changes minimal, typed, and style-consistent.
-- Validation baseline after changes:
-  - `yarn build`
-  - optionally `yarn dev` for manual smoke checks.
-- Do not claim lint/test execution unless tooling exists and was actually run.
+- 提交前检查现有模式和工作树，不覆盖用户的无关改动。
+- 提交首行使用英文 Conventional Commits；需要正文时用中文 Markdown 无序列表说明原因与影响。
+- 不以未执行的 lint、测试或构建作为完成证明。

@@ -1,6 +1,7 @@
 import { execFileSync, execSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 
 export function run(command, cwd) {
   execSync(command, {
@@ -17,15 +18,26 @@ export function runSilently(command, cwd) {
 }
 
 export function runFile(command, args, cwd, env = {}) {
-  const executable = process.platform === 'win32' && (command === 'npm' || command === 'npx')
-    ? `${command}.cmd`
-    : command
-  execFileSync(executable, args, {
+  let executable = command
+  let executableArgs = args
+  if (command === 'npm' || command === 'npx') {
+    const cliFileName = command === 'npm' ? 'npm-cli.js' : 'npx-cli.js'
+    const bundledCliPath = resolve(dirname(process.execPath), 'node_modules/npm/bin', cliFileName)
+    if (existsSync(bundledCliPath)) {
+      executable = process.execPath
+      executableArgs = [bundledCliPath, ...args]
+    } else if (process.platform === 'win32') {
+      executable = `${command}.cmd`
+    }
+  }
+
+  execFileSync(executable, executableArgs, {
     cwd,
     env: {
       ...process.env,
       ...env,
     },
+    shell: process.platform === 'win32' && executable.endsWith('.cmd'),
     stdio: 'inherit',
   })
 }
