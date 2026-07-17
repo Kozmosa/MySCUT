@@ -13,7 +13,7 @@ export function resolveManualBuildProtocol({
   }
 
   return {
-    installCommand: 'npm ci',
+    installCommand: 'npm ci --ignore-scripts',
     lockFileName: 'package-lock.json',
     outputDirectoryName: 'vite-platform-dist',
   }

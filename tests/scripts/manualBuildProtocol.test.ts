@@ -10,7 +10,7 @@ describe('resolveManualBuildProtocol', () => {
       hasPackageLock: true,
       hasVitePressConfig: true,
     })).toEqual({
-      installCommand: 'npm ci',
+      installCommand: 'npm ci --ignore-scripts',
       lockFileName: 'package-lock.json',
       outputDirectoryName: 'vite-platform-dist',
     })
@@ -31,10 +31,11 @@ describe('resolveManualBuildProtocol', () => {
 
 describe('createManualDependencyStamp', () => {
   it('changes when the package manager or lock content changes', () => {
-    const initial = createManualDependencyStamp('npm ci', 'lock-content')
+    const initial = createManualDependencyStamp('npm ci --ignore-scripts', 'lock-content')
 
-    expect(createManualDependencyStamp('npm ci', 'lock-content')).toBe(initial)
-    expect(createManualDependencyStamp('npm ci', 'updated-lock')).not.toBe(initial)
+    expect(createManualDependencyStamp('npm ci --ignore-scripts', 'lock-content')).toBe(initial)
+    expect(createManualDependencyStamp('npm ci --ignore-scripts', 'updated-lock')).not.toBe(initial)
+    expect(createManualDependencyStamp('npm ci', 'lock-content')).not.toBe(initial)
     expect(createManualDependencyStamp('npm install', 'lock-content')).not.toBe(initial)
   })
 })
