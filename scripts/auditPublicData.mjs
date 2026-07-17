@@ -90,14 +90,20 @@ function auditSyntheticFixtures(failures) {
       failures.push(`${filePath}: contains a person-like Chinese fixture identifier`)
     }
 
-    const requiredMarkers = [
-      'TEST-STUDENT-',
-      'TEST-TEACHER-',
-      'TEST-CLASS-',
-      'TEST-SECTION-',
-      'TEST-GROUP-',
-      'TEST-ROOM-',
-    ]
+    const requiredMarkers = filePath.endsWith('.html')
+      ? [
+          'TEST-STUDENT-',
+          'TEST-TEACHER-',
+          'TEST-CLASS-',
+          'TEST-SECTION-',
+          'TEST-GROUP-',
+          'TEST-ROOM-',
+        ]
+      : [
+          'TEST-COURSE-',
+          'TEST-TEACHER-',
+          'TEST-ROOM-',
+        ]
     for (const marker of requiredMarkers) {
       if (!content.includes(marker)) {
         failures.push(`${filePath}: missing required synthetic marker ${marker}`)

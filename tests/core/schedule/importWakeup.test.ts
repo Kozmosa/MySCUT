@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path'
 import { parseWakeupScheduleText } from '../../../src/core/schedule/importWakeup'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const FIXTURE_PATH = join(__dirname, '..', '..', 'fixtures', 'testWakeup.wakeup_schedule')
+const FIXTURE_PATH = join(__dirname, '..', '..', 'fixtures', 'public', 'wakeupSchedule.synthetic.txt')
 
 function loadFixture() {
   return readFileSync(FIXTURE_PATH, 'utf8')
@@ -65,7 +65,7 @@ describe('parseWakeupScheduleText', () => {
   it('builds course map correctly', () => {
     const data = parseWakeupScheduleText(loadFixture())
     expect(data.courses.length).toBe(3)
-    const mathCourse = data.courses.find((c) => c.name === '高等数学')
+    const mathCourse = data.courses.find((c) => c.name === 'TEST-COURSE-ALPHA')
     expect(mathCourse).toBeDefined()
     expect(mathCourse?.color).toBe('#1890ff')
     expect(mathCourse?.credit).toBe(5)
@@ -76,9 +76,9 @@ describe('parseWakeupScheduleText', () => {
     expect(data.table.maxWeek).toBe(16)
     expect(data.table.nodes).toBe(11)
     expect(data.table.startDate).toBe('2026-02-23')
-    expect(data.table.campus).toBe('华南理工大学')
-    expect(data.table.school).toBe('华南理工大学')
-    expect(data.table.name).toBe('测试课表')
+    expect(data.table.campus).toBe('TEST-UNIVERSITY')
+    expect(data.table.school).toBe('TEST-UNIVERSITY')
+    expect(data.table.name).toBe('TEST-SCHEDULE')
     expect(data.table.showSat).toBe(false)
     expect(data.table.showSun).toBe(false)
   })
@@ -87,7 +87,7 @@ describe('parseWakeupScheduleText', () => {
     const data = parseWakeupScheduleText(loadFixture())
     expect(data.raw.kind).toBe('wakeup')
     if (data.raw.kind === 'wakeup') {
-      expect(data.raw.meta.name).toBe('华南理工大学')
+      expect(data.raw.meta.name).toBe('TEST-UNIVERSITY')
       expect(data.raw.courses.length).toBe(3)
       expect(data.raw.lessons.length).toBe(3)
     }
