@@ -2,11 +2,12 @@ import type { AiProviderId, OpenAiCompatibleSettings } from './types'
 
 const AI_PROVIDER_STORAGE_KEY = 'aiProvider'
 const OPENAI_COMPATIBLE_SETTINGS_STORAGE_KEY = 'aiOpenAiCompatibleSettings'
+const LEGACY_BUILTIN_GATEWAY_PROVIDER_ID = 'builtinGateway'
 
 export const OPENAI_API_KEY_LOCAL_ONLY_NOTICE = 'API Key 仅保存在本地，不会上传到应用服务器。'
 
 function isAiProviderId(value: unknown): value is AiProviderId {
-  return value === 'openaiCompatible' || value === 'builtinGateway' || value === 'localModel'
+  return value === 'openaiCompatible' || value === 'localModel'
 }
 
 function normalizeOpenAiCompatibleSettings(value: unknown): OpenAiCompatibleSettings | null {
@@ -42,6 +43,11 @@ function normalizeOpenAiCompatibleSettings(value: unknown): OpenAiCompatibleSett
 export function getStoredAiProvider() {
   try {
     const value = localStorage.getItem(AI_PROVIDER_STORAGE_KEY)
+    if (value === LEGACY_BUILTIN_GATEWAY_PROVIDER_ID) {
+      localStorage.setItem(AI_PROVIDER_STORAGE_KEY, 'localModel')
+      return 'localModel'
+    }
+
     return isAiProviderId(value) ? value : null
   } catch {
     return null

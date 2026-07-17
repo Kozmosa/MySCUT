@@ -1,4 +1,3 @@
-import { requestBuiltinGatewayChatCompletion } from './providers/builtinGatewayProvider'
 import { requestLocalModelChatCompletion } from './providers/localModelProvider'
 import { requestOpenAiCompatibleChatCompletion } from './providers/openaiCompatibleProvider'
 import { getOpenAiCompatibleSettings, getPreferredAiProvider } from './storage'
@@ -29,10 +28,6 @@ export async function chatCompletion(
     }
 
     return requestOpenAiCompatibleChatCompletion(request, settings)
-  }
-
-  if (providerId === 'builtinGateway') {
-    return requestBuiltinGatewayChatCompletion(request)
   }
 
   return requestLocalModelChatCompletion(request)

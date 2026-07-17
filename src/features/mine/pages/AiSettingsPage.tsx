@@ -22,7 +22,6 @@ const CLOSE_TRANSITION_MS = 220
 
 const AI_PROVIDER_OPTIONS: Array<{ value: AiProviderId; label: string }> = [
   { value: 'localModel', label: '本地服务' },
-  { value: 'builtinGateway', label: '内置 AI 服务' },
   { value: 'openaiCompatible', label: 'OpenAI 兼容' },
 ]
 
@@ -39,17 +38,7 @@ const AI_PROVIDER_GUIDES: Record<
     title: '本地服务说明',
     overview: '当前版本暂未开放本地模型调用能力，选择该方式时不会发起可用推理请求。',
     needConfig: false,
-    steps: ['无需额外配置。', '如需立刻使用 AI，建议切换到“内置 AI 服务”或“OpenAI 兼容”。'],
-  },
-  builtinGateway: {
-    title: '内置 AI 服务说明',
-    overview: '通过应用内置网关调用 AI，适合开箱即用。默认情况下用户侧不需要填写密钥。',
-    needConfig: false,
-    steps: [
-      '直接选择“内置 AI 服务”并点击“保存设置”。',
-      '返回功能页发起 AI 请求即可使用。',
-      '若开发环境不可用，请联系维护者检查内置网关地址配置。',
-    ],
+    steps: ['无需额外配置。', '如需立刻使用 AI，请切换到“OpenAI 兼容”并配置自己的服务。'],
   },
   openaiCompatible: {
     title: 'OpenAI 兼容调用说明',

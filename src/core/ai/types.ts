@@ -1,4 +1,4 @@
-export type AiProviderId = 'openaiCompatible' | 'builtinGateway' | 'localModel'
+export type AiProviderId = 'openaiCompatible' | 'localModel'
 
 export type AiChatMessageRole = 'system' | 'user' | 'assistant'
 
