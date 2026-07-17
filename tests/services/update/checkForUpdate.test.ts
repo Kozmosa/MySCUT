@@ -6,7 +6,7 @@ describe('checkForAppUpdate', () => {
     vi.restoreAllMocks()
   })
 
-  it('returns update-available and uses r2 asset url directly', async () => {
+  it('uses the primary manifest directly and returns an R2 asset URL', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -31,6 +31,7 @@ describe('checkForAppUpdate', () => {
     const result = await checkForAppUpdate({
       localVersion: '0.4.2',
       providerOrder: ['github'],
+      manifestUrls: ['https://r2.example.com/releases/versions.json'],
     })
 
     expect(result.status).toBe('update-available')
@@ -40,6 +41,7 @@ describe('checkForAppUpdate', () => {
 
     expect(result.latestVersion).toBe('0.4.3')
     expect(result.downloadUrl).toBe('https://r2.example.com/releases/v0.4.3/qmm-v0.4.3.apk')
+    expect(fetch).toHaveBeenCalledWith('https://r2.example.com/releases/versions.json', { cache: 'no-store' })
   })
 
   it('prefers r2 asset when github appears first in list', async () => {
@@ -67,6 +69,7 @@ describe('checkForAppUpdate', () => {
     const result = await checkForAppUpdate({
       localVersion: '0.4.2',
       providerOrder: ['fastgit', 'github'],
+      manifestUrls: ['https://r2.example.com/releases/versions.json'],
     })
 
     expect(result.status).toBe('update-available')
@@ -97,6 +100,7 @@ describe('checkForAppUpdate', () => {
     const result = await checkForAppUpdate({
       localVersion: '0.9.0',
       providerOrder: ['fastgit', 'github'],
+      manifestUrls: ['https://example.com/versions.json'],
     })
 
     expect(result.status).toBe('update-available')
@@ -128,13 +132,60 @@ describe('checkForAppUpdate', () => {
     const result = await checkForAppUpdate({
       localVersion: '0.4.2',
       providerOrder: ['github'],
+      manifestUrls: ['https://r2.example.com/releases/versions.json'],
     })
 
     expect(result.status).toBe('up-to-date')
     expect(result.latestVersion).toBe('0.4.2')
   })
 
-  it('throws when all providers fail to fetch manifest', async () => {
+  it('falls back to the repository manifest when the primary source fails', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          latest: {
+            version: '0.5.0',
+            assets: {},
+          },
+        }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await checkForAppUpdate({
+      localVersion: '0.4.9',
+      manifestUrls: [
+        'https://r2.example.com/releases/versions.json',
+        'https://raw.githubusercontent.com/Kozmosa/MySCUT/refs/heads/main/versions.json',
+      ],
+    })
+
+    expect(result.status).toBe('update-available')
+    if (result.status === 'update-available') {
+      expect(result.providerName).toBe('GitHub')
+      expect(result.downloadUrl).toBeNull()
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('falls back when the primary manifest is invalid', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ latest: {} }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ latest: { version: '0.5.0' } }) }),
+    )
+
+    const result = await checkForAppUpdate({
+      localVersion: '0.5.0',
+      manifestUrls: ['https://primary.example.com/versions.json', 'https://fallback.example.com/versions.json'],
+    })
+
+    expect(result.status).toBe('up-to-date')
+  })
+
+  it('throws when all manifest sources fail', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -146,7 +197,7 @@ describe('checkForAppUpdate', () => {
     await expect(
       checkForAppUpdate({
         localVersion: '0.4.2',
-        providerOrder: ['github', 'raw'],
+        manifestUrls: ['https://primary.example.com/versions.json', 'https://fallback.example.com/versions.json'],
       }),
     ).rejects.toThrow('无法获取远程版本信息')
   })

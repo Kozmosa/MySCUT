@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { buildProviderUrl } from '../../../src/services/update/providers'
+import { buildProviderUrl, DEFAULT_UPDATE_PROVIDER_ORDER } from '../../../src/services/update/providers'
 
 describe('buildProviderUrl', () => {
+  it('defaults to direct GitHub asset downloads', () => {
+    expect(DEFAULT_UPDATE_PROVIDER_ORDER).toEqual(['github', 'raw'])
+  })
+
   it('returns original url for github provider', () => {
     const sourceUrl = 'https://example.com/a.apk'
     expect(buildProviderUrl('github', sourceUrl)).toBe(sourceUrl)

@@ -81,7 +81,7 @@ function resolveDefaultProviderOrder(): UpdateLinkProviderId[] {
     }
   }
 
-  return ['fastgit', 'jsdelivr', 'unpkg', 'github']
+  return ['github', 'raw']
 }
 
 export const DEFAULT_UPDATE_PROVIDER_ORDER: UpdateLinkProviderId[] = resolveDefaultProviderOrder()

@@ -1,13 +1,13 @@
 import {
   buildProviderUrl,
   DEFAULT_UPDATE_PROVIDER_ORDER,
-  getUpdateLinkProvider,
   type UpdateLinkProviderId,
 } from './providers'
 
-const REMOTE_VERSION_MANIFEST_URL =
-  import.meta.env.VITE_UPDATE_MANIFEST_URL ??
-  'https://raw.githubusercontent.com/Kozmosa/survive-in-scut/refs/heads/main/docs/.vuepress/public/root-assets/versions.json'
+const DEFAULT_PRIMARY_MANIFEST_URL =
+  'https://pub-2d4ca40983644b4295125ec388670de9.r2.dev/kozmos/releases/versions.json'
+const DEFAULT_FALLBACK_MANIFEST_URL =
+  'https://raw.githubusercontent.com/Kozmosa/MySCUT/refs/heads/main/versions.json'
 
 type RemoteVersionAssets = {
   apk?: string | RemoteAssetLink[]
@@ -16,6 +16,8 @@ type RemoteVersionAssets = {
 type RemoteAssetLink = {
   source?: string
   url?: string
+  size?: number
+  sha256?: string
 }
 
 type RemoteVersionItem = {
@@ -38,6 +40,7 @@ type CheckedManifest = {
 type UpdateCheckInput = {
   localVersion: string
   providerOrder?: UpdateLinkProviderId[]
+  manifestUrls?: string[]
 }
 
 type UpdateAvailableResult = {
@@ -162,6 +165,24 @@ function normalizeAssetLinks(assetField: string | RemoteAssetLink[] | undefined)
   return links
 }
 
+function resolveDefaultManifestUrls() {
+  const primaryUrl = import.meta.env.VITE_UPDATE_MANIFEST_URL?.trim() || DEFAULT_PRIMARY_MANIFEST_URL
+  const fallbackUrl = import.meta.env.VITE_UPDATE_MANIFEST_FALLBACK_URL?.trim() || DEFAULT_FALLBACK_MANIFEST_URL
+  return [...new Set([primaryUrl, fallbackUrl].filter(Boolean))]
+}
+
+function getManifestSourceName(url: string, index: number) {
+  if (url.includes('.r2.dev/')) {
+    return 'Cloudflare R2'
+  }
+
+  if (url.includes('raw.githubusercontent.com/')) {
+    return 'GitHub'
+  }
+
+  return index === 0 ? '主版本源' : `备用版本源 ${index}`
+}
+
 function resolveAssetUrl(assetField: string | RemoteAssetLink[] | undefined, providerOrder: UpdateLinkProviderId[]) {
   const links = normalizeAssetLinks(assetField)
   const preferredR2Link = links.find((link) => link.source === 'r2')
@@ -186,11 +207,14 @@ function resolveAssetUrl(assetField: string | RemoteAssetLink[] | undefined, pro
   return ''
 }
 
-async function loadVersionManifest(providerOrder: UpdateLinkProviderId[]): Promise<CheckedManifest> {
+async function loadVersionManifest(
+  providerOrder: UpdateLinkProviderId[],
+  manifestUrls: string[],
+): Promise<CheckedManifest> {
   const errors: string[] = []
 
-  for (const providerId of providerOrder) {
-    const requestUrl = buildProviderUrl(providerId, REMOTE_VERSION_MANIFEST_URL)
+  for (const [index, requestUrl] of manifestUrls.entries()) {
+    const sourceName = getManifestSourceName(requestUrl, index)
 
     try {
       const response = await fetch(requestUrl, {
@@ -207,22 +231,29 @@ async function loadVersionManifest(providerOrder: UpdateLinkProviderId[]): Promi
       }
 
       return {
-        providerId,
-        providerName: getUpdateLinkProvider(providerId).name,
+        providerId: 'raw',
+        providerName: sourceName,
         latestVersion: responseJson.latest.version,
         downloadUrl: resolveDownloadUrl(responseJson.latest, providerOrder),
       }
     } catch (error) {
       const reason = error instanceof Error ? error.message : '未知错误'
-      errors.push(`${providerId}: ${reason}`)
+      errors.push(`${sourceName}: ${reason}`)
     }
   }
 
   throw new Error(`无法获取远程版本信息（${errors.join('；')}）`)
 }
 
-export async function checkForAppUpdate({ localVersion, providerOrder }: UpdateCheckInput): Promise<AppUpdateCheckResult> {
-  const result = await loadVersionManifest(providerOrder ?? DEFAULT_UPDATE_PROVIDER_ORDER)
+export async function checkForAppUpdate({
+  localVersion,
+  providerOrder,
+  manifestUrls,
+}: UpdateCheckInput): Promise<AppUpdateCheckResult> {
+  const result = await loadVersionManifest(
+    providerOrder ?? DEFAULT_UPDATE_PROVIDER_ORDER,
+    manifestUrls ?? resolveDefaultManifestUrls(),
+  )
   const compared = compareVersion(result.latestVersion, localVersion)
 
   if (compared > 0) {
