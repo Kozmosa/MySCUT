@@ -35,7 +35,7 @@ npm run release -- <next-version> --platform=android,ios --asset-source=r2 --not
 5. 等待维护者在 Android Studio 或 Xcode 完成签名产物。
 6. 复制为 `artifacts/release/qmm-v<next-version>.apk` 或 `.ipa`，计算 size 与 SHA256，并写回清单。
 7. 可选上传 R2；通过 S3 HEAD、自定义 SHA256 metadata、公开 HEAD 与公开下载 hash 复验。
-8. 只暂存 package、lock、manifest、原生版本文件、可选 release note 和已明确变更的子模块 gitlink。出现其他跟踪改动即中止。
+8. 只暂存 package、lock、manifest、应用内许可证清单、原生版本文件、可选 release note 和已明确变更的子模块 gitlink。出现其他跟踪改动即中止。
 9. 创建 release commit 和 tag，显式推送 main 与该 tag。
 10. 使用 `gh release create` 或 `gh release upload --clobber` 上传 APK/IPA 与 `versions.json`，核对 GitHub 返回的 size、digest 和下载 URL。
 11. 成功后删除本地 `artifacts/release/`。

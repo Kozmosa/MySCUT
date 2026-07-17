@@ -7,6 +7,7 @@ import {
   packageJsonPath,
   packageLockJsonPath,
   rootDir,
+  thirdPartyLicensesPath,
   versionsJsonPath,
 } from './constants.mjs'
 import { runFile, runFileSilently } from './shared.mjs'
@@ -74,6 +75,7 @@ function getExpectedReleasePaths(noteFilePath) {
     packageJsonPath,
     packageLockJsonPath,
     versionsJsonPath,
+    thirdPartyLicensesPath,
     androidVersionFilePath,
     iosVersionFilePath,
     manualSubmodulePath,

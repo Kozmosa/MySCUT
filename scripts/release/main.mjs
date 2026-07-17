@@ -98,6 +98,7 @@ function printDryRun({ nextVersion, tag, targetPlatforms, releaseOptions, owner,
   console.log('- package.json')
   console.log('- package-lock.json')
   console.log('- versions.json')
+  console.log('- src/generated/thirdPartyLicenses.ts')
   console.log('- android/app/build.gradle')
   console.log('- ios/App/App.xcodeproj/project.pbxproj')
   console.log('- external/survive-in-scut (gitlink, only if already changed deliberately)')
