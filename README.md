@@ -32,7 +32,9 @@ npm ci
 npm run dev
 ```
 
-已有 clone 可执行：
+> 公开 Git 历史已于 2026-07-17 重写并强推。重写前创建的 clone 不得继续 merge、rebase、cherry-pick 或 push；请删除或加密归档旧 clone 后重新克隆。详情见 [Repository history sanitization](docs/HISTORY_SANITIZATION.md)。
+
+确认创建于历史重写之后的已有 clone 可执行：
 
 ```bash
 git submodule update --init --recursive

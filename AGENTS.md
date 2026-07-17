@@ -58,6 +58,16 @@ npm exec vitest -- path/to/file.test.ts -t "test name"
 - 只有长期有效且需要解释取舍的决策进入 `docs/adr/`。
 - `.agents/skills` 是技能源，`.claude/skills` 是生成镜像；不得双份手工修改，`npm run check:docs` 会检查一致性。
 
+## 历史安全与远端操作
+
+- 公开 Git 历史已于 2026-07-17 重写并强推；重写前的 commit ID、clone、fork、bundle 和补丁均视为不可信旧历史。
+- 不得从重写前历史执行 merge、rebase、cherry-pick、push 或恢复已删除的分支、标签和安装包 blob。需要旧实现时只能人工审阅并在脱敏后重新实现。
+- 处理现有 checkout 前先确认 `main` 基于当前 `origin/main`；无法确认时删除或加密归档旧 clone，再从远端重新克隆并初始化子模块。
+- 不得绕过 `main` 分支保护，不得在未完成当前树和全 refs 敏感扫描时 force push、重写标签或恢复备份 refs。
+- GitHub 缓存、detached object、fork 和第三方 clone 不受普通 force push 控制；不得宣称历史重写已经从所有外部副本中彻底清除数据。
+- 未经维护者明确授权，不得代表项目提交 GitHub Support 请求。安全问题使用 Private Vulnerability Reporting 私下处理，不得在公开 Issue 中粘贴敏感值。
+- 历史清理状态、重新克隆要求和风险边界以 `docs/HISTORY_SANITIZATION.md` 为准。
+
 ## Git 工作流
 
 - 提交前检查现有模式和工作树，不覆盖用户的无关改动。
