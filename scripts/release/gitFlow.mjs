@@ -17,7 +17,10 @@ function toRepoPath(filePath) {
 }
 
 export function getGitStatusSnapshot() {
-  return runFileSilently('git', ['status', '--porcelain=v1', '--untracked-files=all'], rootDir)
+  return execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
+    cwd: rootDir,
+    encoding: 'utf8',
+  }).replace(/\r?\n$/, '')
 }
 
 export function ensureCleanWorktree() {
@@ -58,7 +61,7 @@ export function ensureMainBranch() {
   }
 }
 
-function parseStatusPaths(status) {
+export function parseStatusPaths(status) {
   if (!status) {
     return []
   }
