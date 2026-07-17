@@ -18,7 +18,8 @@
     "build:ohos-artifacts": "node scripts/printOhosArtifacts.mjs",
     "preview": "vite preview",
     "preview:pwa": "node scripts/previewPwa.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "audit:public-data": "node scripts/auditPublicData.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
