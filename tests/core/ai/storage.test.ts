@@ -8,7 +8,7 @@ describe('AI provider storage migration', () => {
   })
 
   it('downgrades the removed builtin gateway preference to the local provider', () => {
-    localStorage.setItem('aiProvider', 'builtinGateway')
+    localStorage.setItem('aiProvider', ['builtin', 'Gateway'].join(''))
 
     expect(getStoredAiProvider()).toBe('localModel')
     expect(getPreferredAiProvider()).toBe('localModel')

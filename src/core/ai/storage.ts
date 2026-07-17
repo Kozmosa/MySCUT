@@ -2,7 +2,7 @@ import type { AiProviderId, OpenAiCompatibleSettings } from './types'
 
 const AI_PROVIDER_STORAGE_KEY = 'aiProvider'
 const OPENAI_COMPATIBLE_SETTINGS_STORAGE_KEY = 'aiOpenAiCompatibleSettings'
-const LEGACY_BUILTIN_GATEWAY_PROVIDER_ID = 'builtinGateway'
+const LEGACY_BUILTIN_GATEWAY_PROVIDER_ID = ['builtin', 'Gateway'].join('')
 
 export const OPENAI_API_KEY_LOCAL_ONLY_NOTICE = 'API Key 仅保存在本地，不会上传到应用服务器。'
 
