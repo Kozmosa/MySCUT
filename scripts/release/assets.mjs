@@ -24,10 +24,6 @@ function walkFiles(dirPath) {
 }
 
 function ensureNoReleaseAssetConflict(filePath) {
-  if (extname(filePath).toLowerCase() !== '.apk') {
-    return
-  }
-
   if (!existsSync(dirname(filePath))) {
     mkdirSync(dirname(filePath), { recursive: true })
   }
@@ -117,6 +113,7 @@ export function prepareIosReleaseAsset(nextVersion, builtIpaPath) {
 
   const renamedIpaName = `qmm-v${nextVersion}.ipa`
   const renamedIpaPath = resolve(releaseArtifactDir, renamedIpaName)
+  ensureNoReleaseAssetConflict(renamedIpaPath)
   cpSync(builtIpaPath, renamedIpaPath)
   return renamedIpaPath
 }

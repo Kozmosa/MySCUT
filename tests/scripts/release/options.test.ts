@@ -3,6 +3,14 @@ import { parseReleaseOptions } from '../../../scripts/release/options.mjs'
 
 const originalArgv = [...process.argv]
 const originalNpmConfigArgv = process.env.npm_config_argv
+const npmConfigKeys = [
+  'npm_config_android',
+  'npm_config_ios',
+  'npm_config_note_file',
+  'npm_config_asset_source',
+  'npm_config_dry_run',
+] as const
+const originalNpmConfigValues = Object.fromEntries(npmConfigKeys.map((key) => [key, process.env[key]]))
 
 function setArgv(args: string[]) {
   process.argv = ['node', 'scripts/release.mjs', ...args]
@@ -11,6 +19,9 @@ function setArgv(args: string[]) {
 describe('parseReleaseOptions', () => {
   beforeEach(() => {
     delete process.env.npm_config_argv
+    for (const key of npmConfigKeys) {
+      delete process.env[key]
+    }
   })
 
   afterEach(() => {
@@ -19,6 +30,14 @@ describe('parseReleaseOptions', () => {
       process.env.npm_config_argv = originalNpmConfigArgv
     } else {
       delete process.env.npm_config_argv
+    }
+    for (const key of npmConfigKeys) {
+      const originalValue = originalNpmConfigValues[key]
+      if (typeof originalValue === 'string') {
+        process.env[key] = originalValue
+      } else {
+        delete process.env[key]
+      }
     }
   })
 
@@ -29,12 +48,13 @@ describe('parseReleaseOptions', () => {
     expect(options.platforms).toEqual({ android: true, ios: false })
   })
 
-  it('parses ios and android flags with note and asset source', () => {
-    setArgv(['0.4.2', '--android', '--ios', '--note', 'hello', '--asset-source', 'r2'])
+  it('parses ios and android flags with note file, R2 and dry run', () => {
+    setArgv(['0.4.2', '--android', '--ios', '--note-file', 'notes.md', '--asset-source', 'r2', '--dry-run'])
     const options = parseReleaseOptions()
 
-    expect(options.note).toBe('hello')
+    expect(options.noteFile).toBe('notes.md')
     expect(options.assetSource).toBe('r2')
+    expect(options.dryRun).toBe(true)
     expect(options.platforms).toEqual({ android: true, ios: true })
   })
 
@@ -54,6 +74,11 @@ describe('parseReleaseOptions', () => {
     expect(() => parseReleaseOptions()).toThrow('No platform selected')
   })
 
+  it('rejects note text and note file used together', () => {
+    setArgv(['0.4.2', '--note', 'hello', '--note-file', 'notes.md'])
+    expect(() => parseReleaseOptions()).toThrow('either --note or --note-file')
+  })
+
   it('falls back to npm_config_argv when direct argv is empty', () => {
     process.argv = ['node', 'scripts/release.mjs']
     process.env.npm_config_argv = JSON.stringify({
@@ -63,5 +88,19 @@ describe('parseReleaseOptions', () => {
     const options = parseReleaseOptions()
     expect(options.version).toBe('0.4.2')
     expect(options.platforms).toEqual({ android: false, ios: true })
+  })
+
+  it('reads flags that npm 11 exposes through npm_config environment variables', () => {
+    setArgv(['0.4.2', 'notes.md'])
+    process.env.npm_config_android = 'true'
+    process.env.npm_config_note_file = 'notes.md'
+    process.env.npm_config_asset_source = 'r2'
+    process.env.npm_config_dry_run = 'true'
+
+    const options = parseReleaseOptions()
+    expect(options.platforms).toEqual({ android: true, ios: false })
+    expect(options.noteFile).toBe('notes.md')
+    expect(options.assetSource).toBe('r2')
+    expect(options.dryRun).toBe(true)
   })
 })

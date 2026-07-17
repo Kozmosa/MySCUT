@@ -1,5 +1,10 @@
 import { existsSync } from 'node:fs'
-import { packageJsonPath, VERSION_PATTERN, versionsJsonPath } from './constants.mjs'
+import {
+  packageJsonPath,
+  packageLockJsonPath,
+  VERSION_PATTERN,
+  versionsJsonPath,
+} from './constants.mjs'
 import { readJson, writeJson } from './shared.mjs'
 
 export function compareVersions(left, right) {
@@ -41,7 +46,7 @@ function readVersionsData() {
 export function validateTargetVersion(nextVersion) {
   if (!nextVersion) {
     throw new Error(
-      'Missing version code. Usage: npm run release <version_code> --android --ios --note "- New UI"',
+      'Missing version code. Usage: npm run release -- <version_code> --android --ios --note-file <path>',
     )
   }
 
@@ -67,12 +72,19 @@ export function validateTargetVersion(nextVersion) {
   }
 }
 
-export function updatePackageVersion(packageJson, nextVersion) {
+export function updatePackageVersionFiles(packageJson, nextVersion) {
   packageJson.version = nextVersion
   writeJson(packageJsonPath, packageJson)
+
+  const packageLockJson = readJson(packageLockJsonPath)
+  packageLockJson.version = nextVersion
+  if (packageLockJson.packages?.['']) {
+    packageLockJson.packages[''].version = nextVersion
+  }
+  writeJson(packageLockJsonPath, packageLockJson)
 }
 
-function toAssetEntry(source, url) {
+function toAssetEntry(source, url, metadata) {
   if (!url) {
     return null
   }
@@ -80,6 +92,10 @@ function toAssetEntry(source, url) {
   return {
     source,
     url,
+    ...(metadata ? {
+      size: metadata.size,
+      sha256: metadata.sha256,
+    } : {}),
   }
 }
 
@@ -91,12 +107,13 @@ export function updateVersionsJson({
   hasAndroidAsset,
   hasIosAsset,
   r2AssetUrls,
+  assetMetadata,
+  publishedAt = new Date().toISOString(),
 }) {
   const baseDownloadUrl = `https://github.com/${owner}/${repo}/releases/download/${tag}`
   const apkName = `qmm-v${version}.apk`
   const ipaName = `qmm-v${version}.ipa`
   const versionsName = 'versions.json'
-  const publishedAt = new Date().toISOString()
   const githubVersionsUrl = `${baseDownloadUrl}/${versionsName}`
 
   const assets = {
@@ -105,8 +122,8 @@ export function updateVersionsJson({
 
   if (hasAndroidAsset) {
     const apkEntries = [
-      toAssetEntry('r2', r2AssetUrls?.apk || ''),
-      toAssetEntry('github', `${baseDownloadUrl}/${apkName}`),
+      toAssetEntry('r2', r2AssetUrls?.apk || '', assetMetadata?.apk),
+      toAssetEntry('github', `${baseDownloadUrl}/${apkName}`, assetMetadata?.apk),
     ].filter(Boolean)
 
     if (apkEntries.length > 0) {
@@ -116,8 +133,8 @@ export function updateVersionsJson({
 
   if (hasIosAsset) {
     const ipaEntries = [
-      toAssetEntry('r2', r2AssetUrls?.ipa || ''),
-      toAssetEntry('github', `${baseDownloadUrl}/${ipaName}`),
+      toAssetEntry('r2', r2AssetUrls?.ipa || '', assetMetadata?.ipa),
+      toAssetEntry('github', `${baseDownloadUrl}/${ipaName}`, assetMetadata?.ipa),
     ].filter(Boolean)
 
     if (ipaEntries.length > 0) {

@@ -25,13 +25,25 @@ function parsePlatformList(input) {
     .filter((item) => item.length > 0)
 }
 
+function readNpmConfigValue(key) {
+  const value = process.env[`npm_config_${key}`]
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function isEnabledNpmConfig(key) {
+  const value = readNpmConfigValue(key).toLowerCase()
+  return value === 'true' || value === '1'
+}
+
 export function parseReleaseOptions() {
   const directArgs = process.argv.slice(2).map((item) => item.trim()).filter((item) => item.length > 0)
   const rawArgs = directArgs.length > 0 ? directArgs : parseNpmOriginalArgs()
 
   let version = ''
   let note = ''
+  let noteFile = ''
   let assetSource = ''
+  let dryRun = false
   let android = false
   let ios = false
   let hasPlatformFlag = false
@@ -114,6 +126,27 @@ export function parseReleaseOptions() {
       continue
     }
 
+    if (arg === '--note-file') {
+      const next = rawArgs[index + 1]
+      if (!next) {
+        throw new Error('Missing value for --note-file. Example: --note-file .release-notes/draft.md')
+      }
+
+      noteFile = next
+      index += 1
+      continue
+    }
+
+    if (arg.startsWith('--note-file=')) {
+      noteFile = arg.slice('--note-file='.length)
+      continue
+    }
+
+    if (arg === '--dry-run') {
+      dryRun = true
+      continue
+    }
+
     if (arg.startsWith('--note=')) {
       note = arg.slice('--note='.length)
       continue
@@ -144,6 +177,39 @@ export function parseReleaseOptions() {
     }
   }
 
+  if (isEnabledNpmConfig('android')) {
+    hasPlatformFlag = true
+    android = true
+  }
+
+  if (isEnabledNpmConfig('ios')) {
+    hasPlatformFlag = true
+    ios = true
+  }
+
+  const npmPlatform = readNpmConfigValue('platform')
+  if (npmPlatform) {
+    hasPlatformFlag = true
+    for (const platform of parsePlatformList(npmPlatform)) {
+      if (platform === 'android') {
+        android = true
+      } else if (platform === 'ios') {
+        ios = true
+      } else {
+        throw new Error(`Unsupported platform "${platform}". Use android or ios.`)
+      }
+    }
+  }
+
+  note ||= readNpmConfigValue('note')
+  noteFile ||= readNpmConfigValue('note_file')
+  assetSource ||= readNpmConfigValue('asset_source')
+  dryRun ||= isEnabledNpmConfig('dry_run')
+
+  if (assetSource && assetSource !== 'r2') {
+    throw new Error(`Unsupported asset source "${assetSource}". Currently only "r2" is supported.`)
+  }
+
   if (!hasPlatformFlag) {
     android = true
   }
@@ -152,10 +218,16 @@ export function parseReleaseOptions() {
     throw new Error('No platform selected. Use --android and/or --ios.')
   }
 
+  if (note && noteFile) {
+    throw new Error('Use either --note or --note-file, not both.')
+  }
+
   return {
     version,
     note,
+    noteFile,
     assetSource,
+    dryRun,
     platforms: {
       android,
       ios,
