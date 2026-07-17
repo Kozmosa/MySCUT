@@ -11,7 +11,6 @@ export const THIRD_PARTY_LICENSES = [
   { name: '@capacitor/ios', version: '8.1.0', license: 'MIT' },
   { name: '@capacitor/status-bar', version: '8.0.1', license: 'MIT' },
   { name: '@hpcc-js/wasm-zstd', version: '1.12.0', license: 'Apache-2.0' },
-  { name: '@rollup/rollup-win32-x64-msvc', version: '4.62.2', license: 'MIT' },
   { name: 'antd', version: '5.27.0', license: 'MIT' },
   { name: 'jeep-sqlite', version: '2.8.0', license: 'MIT' },
   { name: 'pdfjs-dist', version: '5.4.624', license: 'Apache-2.0' },

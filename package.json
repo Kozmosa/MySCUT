@@ -51,7 +51,6 @@
     "@capacitor/ios": "^8.1.0",
     "@capacitor/status-bar": "^8.0.1",
     "@hpcc-js/wasm-zstd": "^1.7.0",
-    "@rollup/rollup-win32-x64-msvc": "^4.62.2",
     "antd": "^5.27.0",
     "jeep-sqlite": "2.8.0",
     "pdfjs-dist": "^5.4.624",
