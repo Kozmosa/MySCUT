@@ -58,3 +58,9 @@ scripts/local/
 
 # Git filter-branch temporary files
 .git-rewrite/
+
+# Agents working dir
+.zcode/
+
+# Temporary audit/working documents
+docs/temp/
