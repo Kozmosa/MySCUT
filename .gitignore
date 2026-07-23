@@ -56,5 +56,8 @@ LLM-Working/*.mhtml
 # Local developer scripts
 scripts/local/
 
+# Temporary audit/working documents
+docs/temp/
+
 # Git filter-branch temporary files
 .git-rewrite/
