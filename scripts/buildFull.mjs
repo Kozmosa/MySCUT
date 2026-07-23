@@ -1,10 +1,54 @@
+import { cpSync, rmSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { rootDir, run } from './manualSubmoduleUtils.mjs'
 
+const nativeDir = resolve(rootDir, 'dist/native')
+
 const tasks = [
-  { name: 'web', command: 'npm run build:web' },
-  { name: 'android', command: 'npm run build:android' },
-  { name: 'ios', command: 'npm run build:ios' },
-  { name: 'ohos', command: 'npm run build:ohos-web' },
+  {
+    name: 'native (shared for android/ios)',
+    builder: () => {
+      run('node scripts/buildApp.mjs', rootDir, {
+        VITE_OUT_DIR: 'dist/native',
+        VITE_TARGET_PLATFORM: 'android',
+      })
+    },
+  },
+  {
+    name: 'android',
+    builder: () => {
+      const androidDir = resolve(rootDir, 'dist/android')
+      rmSync(androidDir, { recursive: true, force: true })
+      cpSync(nativeDir, androidDir, { recursive: true })
+      run('node scripts/syncNativeVersion.mjs', rootDir)
+      run('npx cap sync android', rootDir, { CAP_WEB_DIR: 'dist/android' })
+    },
+  },
+  {
+    name: 'ios',
+    builder: () => {
+      const iosDir = resolve(rootDir, 'dist/ios')
+      rmSync(iosDir, { recursive: true, force: true })
+      cpSync(nativeDir, iosDir, { recursive: true })
+      run('node scripts/syncNativeVersion.mjs', rootDir)
+      run('npx cap sync ios', rootDir, { CAP_WEB_DIR: 'dist/ios' })
+    },
+  },
+  {
+    name: 'web',
+    builder: () => {
+      run('node scripts/buildApp.mjs', rootDir, {
+        VITE_OUT_DIR: 'dist/web',
+        VITE_TARGET_PLATFORM: 'web',
+      })
+    },
+  },
+  {
+    name: 'ohos',
+    builder: () => {
+      run('npm run build:ohos-web', rootDir)
+    },
+  },
 ]
 
 const results = []
@@ -12,7 +56,7 @@ const results = []
 for (const task of tasks) {
   console.log(`\n=== Building ${task.name} ===`)
   try {
-    run(task.command, rootDir)
+    task.builder()
     results.push({
       name: task.name,
       status: 'ok',
