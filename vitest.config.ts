@@ -2,9 +2,15 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    environment: 'node',
+    environment: 'jsdom',
+    environmentOptions: {
+      jsdom: {
+        url: 'https://example.com',
+      },
+    },
     include: ['tests/**/*.test.ts'],
     clearMocks: true,
     restoreMocks: true,
+    setupFiles: ['./tests/setupLocalStorage.ts'],
   },
 })
