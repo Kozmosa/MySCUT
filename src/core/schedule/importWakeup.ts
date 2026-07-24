@@ -139,7 +139,22 @@ function resolveWakeupLessonRange(lesson: WakeupLesson, timeSlots: WakeupTimeSlo
   }
 
   startNode = clampWakeupNode(startNode, maxNode)
-  endNode = clampWakeupNode(startNode + span - 1, maxNode)
+
+  // Prefer endTime-based endNode lookup (more reliable when step is inaccurate)
+  if (hasEndTime) {
+    const matchedEndNode = endNodeLookup.get(endTime)
+    if (typeof matchedEndNode === 'number') {
+      endNode = clampWakeupNode(matchedEndNode, maxNode)
+    }
+  }
+
+  if (endNode === null) {
+    endNode = clampWakeupNode(startNode + span - 1, maxNode)
+  }
+
+  if (endNode < startNode) {
+    endNode = startNode
+  }
 
   if (!hasStartTime) {
     startTime = timeSlotNodeMap.get(startNode)?.startTime ?? ''

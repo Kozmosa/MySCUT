@@ -43,11 +43,11 @@ describe('parseWakeupScheduleText', () => {
       expect(lesson2.endTime).toBe('12:15')
     }
 
-    // Lesson 3: day=2, startNode=7, step=2 -> should be startNode=7, endNode=8
+    // Lesson 3 has an inconsistent step=2 but endTime matches node 7, so endTime wins.
     const lesson3 = data.lessons.find((l) => l.day === 2 && l.startNode === 7)
     expect(lesson3).toBeDefined()
     if (lesson3) {
-      expect(lesson3.endNode).toBe(8)
+      expect(lesson3.endNode).toBe(7)
       expect(lesson3.startTime).toBe('15:45')
       expect(lesson3.endTime).toBe('16:30')
     }
