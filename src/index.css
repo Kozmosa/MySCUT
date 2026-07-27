@@ -864,7 +864,7 @@ body {
 }
 
 .settings-view-transition {
-  will-change: transform, opacity;
+  will-change: opacity;
 }
 
 .settings-view-transition--entering {
