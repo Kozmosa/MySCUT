@@ -1,5 +1,5 @@
 import { type ChangeEvent, useEffect, useRef, useState } from 'react'
-import { Input, Modal, Select, message } from 'antd'
+import { Input, Select, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { Actions, ActionsButton, ActionsGroup, ActionsLabel, Dialog, DialogButton, Navbar, NavbarBackLink, Link, Popup } from 'konsta/react'
 import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../../core/navigation/animatedBack'
@@ -510,33 +510,39 @@ function ScheduleIntersectionPage() {
         </div>
       </Popup>
 
-      <Modal
-        title='选择本地课表'
-        open={isLocalScheduleModalOpen}
-        onCancel={() => setIsLocalScheduleModalOpen(false)}
-        footer={null}
+      <Popup
+        opened={isLocalScheduleModalOpen}
+        onBackdropClick={() => setIsLocalScheduleModalOpen(false)}
       >
-        <div className='schedule-switch-list'>
-          {savedSchedules.length === 0 ? (
-            <p className='schedule-switch-empty'>暂无已保存课表</p>
-          ) : (
-            savedSchedules.map((schedule) => (
-              <button
-                key={schedule.id}
-                type='button'
-                className={`schedule-switch-item ${schedule.id === selectedLocalScheduleId ? 'is-active' : ''}`}
-                onClick={() => {
-                  setSelectedLocalScheduleId(schedule.id)
-                  setIsLocalScheduleModalOpen(false)
-                }}
-              >
-                <span>{schedule.name}</span>
-                <span className='schedule-switch-meta'>来源：{schedule.source}</span>
-              </button>
-            ))
-          )}
+        <div className='popup-wrapper'>
+          <Navbar
+            title='选择本地课表'
+            left={<Link navbar onClick={() => setIsLocalScheduleModalOpen(false)}>取消</Link>}
+          />
+          <div className='popup-scrollable'>
+            <div className='schedule-switch-list'>
+              {savedSchedules.length === 0 ? (
+                <p className='schedule-switch-empty'>暂无已保存课表</p>
+              ) : (
+                savedSchedules.map((schedule) => (
+                  <button
+                    key={schedule.id}
+                    type='button'
+                    className={`schedule-switch-item ${schedule.id === selectedLocalScheduleId ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setSelectedLocalScheduleId(schedule.id)
+                      setIsLocalScheduleModalOpen(false)
+                    }}
+                  >
+                    <span>{schedule.name}</span>
+                    <span className='schedule-switch-meta'>来源：{schedule.source}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
         </div>
-      </Modal>
+      </Popup>
 
       <Dialog
         title='设置课表使用者名称'

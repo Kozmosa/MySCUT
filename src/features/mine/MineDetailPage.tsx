@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, Checkbox, Modal, Switch, message } from 'antd'
+import { Button, Checkbox, Switch, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
-import { Navbar, NavbarBackLink, Link, Popup } from 'konsta/react'
+import { Dialog, DialogButton, Navbar, NavbarBackLink, Link, Popup } from 'konsta/react'
 import { HorizontalSlideSelector } from '../../components/HorizontalSlideSelector'
 import { VerticalSlideSelector } from '../../components/VerticalSlideSelector'
 import { getUseLocalManual, setUseLocalManual } from '../../core/manual/manualSourceStorage'
@@ -68,7 +68,6 @@ const DETAIL_ITEMS_MAP: Record<string, Array<{ title: string; description: strin
 function MineDetailPage({ title }: MineDetailPageProps) {
   const navigate = useNavigate()
   const [messageApi, contextHolder] = message.useMessage()
-  const [modal, modalContextHolder] = Modal.useModal()
   const { themeFamily, mode, resolvedMode, setThemeFamily, setMode } = useGlobalTheme()
   const subtitle = DETAIL_SUBTITLE_MAP[title] ?? 'Details'
   const detailItems = DETAIL_ITEMS_MAP[title] ?? DETAIL_ITEMS_MAP['更多']
@@ -77,6 +76,13 @@ function MineDetailPage({ title }: MineDetailPageProps) {
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false)
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(false)
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
+  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false)
+  const [updateDialogInfo, setUpdateDialogInfo] = useState<{
+    latestVersion: string
+    localVersion: string
+    providerName: string
+    downloadUrl: string | null
+  } | null>(null)
   const [transitionStage, setTransitionStage] = useState<TransitionStage>('entering')
   const closeTimerRef = useRef<number | null>(null)
   const enterTimerRef = useRef<number | null>(null)
@@ -163,20 +169,13 @@ function MineDetailPage({ title }: MineDetailPageProps) {
         return
       }
 
-      modal.confirm({
-        title: `发现新版本 v${result.latestVersion}`,
-        content: `当前版本 v${result.localVersion}，检测来源：${result.providerName}`,
-        okText: '去更新',
-        cancelText: '稍后',
-        onOk: () => {
-          if (!result.downloadUrl) {
-            messageApi.error('远程未提供下载链接')
-            return
-          }
-
-          window.open(result.downloadUrl, '_blank', 'noopener,noreferrer')
-        },
+      setUpdateDialogInfo({
+        latestVersion: result.latestVersion,
+        localVersion: result.localVersion,
+        providerName: result.providerName,
+        downloadUrl: result.downloadUrl,
       })
+      setIsUpdateDialogOpen(true)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '检查更新失败，请稍后重试'
       messageApi.error(errorMessage)
@@ -190,7 +189,6 @@ function MineDetailPage({ title }: MineDetailPageProps) {
       className={`schedule-settings-page mine-detail-page settings-view-transition settings-view-transition--${transitionStage}`}
     >
       {contextHolder}
-      {modalContextHolder}
       <Navbar
         title={title}
         subtitle={subtitle}
@@ -431,6 +429,26 @@ function MineDetailPage({ title }: MineDetailPageProps) {
           ))
         )}
       </div>
+
+      <Dialog
+        title={updateDialogInfo ? `发现新版本 v${updateDialogInfo.latestVersion}` : ''}
+        opened={isUpdateDialogOpen}
+        onBackdropClick={() => setIsUpdateDialogOpen(false)}
+        content={updateDialogInfo ? `当前版本 v${updateDialogInfo.localVersion}，检测来源：${updateDialogInfo.providerName}` : ''}
+        buttons={
+          <>
+            <DialogButton onClick={() => setIsUpdateDialogOpen(false)}>稍后</DialogButton>
+            <DialogButton strong onClick={() => {
+              if (updateDialogInfo?.downloadUrl) {
+                window.open(updateDialogInfo.downloadUrl, '_blank', 'noopener,noreferrer')
+              } else {
+                messageApi.error('远程未提供下载链接')
+              }
+              setIsUpdateDialogOpen(false)
+            }}>去更新</DialogButton>
+          </>
+        }
+      />
     </section>
   )
 }

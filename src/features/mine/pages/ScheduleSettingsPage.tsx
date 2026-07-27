@@ -875,41 +875,47 @@ function ScheduleSettingsPage() {
         </div>
       </Popup>
 
-      <Modal
-        title='切换课表'
-        open={isScheduleSwitchModalOpen}
-        onCancel={() => setIsScheduleSwitchModalOpen(false)}
-        footer={null}
+      <Popup
+        opened={isScheduleSwitchModalOpen}
+        onBackdropClick={() => setIsScheduleSwitchModalOpen(false)}
       >
-        <div className='schedule-switch-list'>
-          {savedSchedules.length === 0 ? (
-            <p className='schedule-switch-empty'>暂无已保存课表</p>
-          ) : (
-            savedSchedules.map((schedule) => (
-              <div key={schedule.id} className='schedule-switch-row'>
-                <button
-                  type='button'
-                  className={`schedule-switch-item ${schedule.isActive ? 'is-active' : ''}`}
-                  onClick={() => handleSwitchSchedule(schedule.id)}
-                >
-                  <span>{schedule.name}</span>
-                  <span className='schedule-switch-meta'>
-                    来源：{schedule.source === 'wakeup' ? 'WakeUp' : '华工教务HTML'}
-                  </span>
-                </button>
-                <button
-                  type='button'
-                  className='schedule-switch-delete'
-                  aria-label={`删除课表 ${schedule.name}`}
-                  onClick={() => handleOpenDeleteSchedule(schedule.id, schedule.name)}
-                >
-                  ×
-                </button>
-              </div>
-            ))
-          )}
+        <div className='popup-wrapper'>
+          <Navbar
+            title='切换课表'
+            left={<Link navbar onClick={() => setIsScheduleSwitchModalOpen(false)}>取消</Link>}
+          />
+          <div className='popup-scrollable'>
+            <div className='schedule-switch-list'>
+              {savedSchedules.length === 0 ? (
+                <p className='schedule-switch-empty'>暂无已保存课表</p>
+              ) : (
+                savedSchedules.map((schedule) => (
+                  <div key={schedule.id} className='schedule-switch-row'>
+                    <button
+                      type='button'
+                      className={`schedule-switch-item ${schedule.isActive ? 'is-active' : ''}`}
+                      onClick={() => handleSwitchSchedule(schedule.id)}
+                    >
+                      <span>{schedule.name}</span>
+                      <span className='schedule-switch-meta'>
+                        来源：{schedule.source === 'wakeup' ? 'WakeUp' : '华工教务HTML'}
+                      </span>
+                    </button>
+                    <button
+                      type='button'
+                      className='schedule-switch-delete'
+                      aria-label={`删除课表 ${schedule.name}`}
+                      onClick={() => handleOpenDeleteSchedule(schedule.id, schedule.name)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
-      </Modal>
+      </Popup>
 
       <Dialog
         title='删除课表确认'

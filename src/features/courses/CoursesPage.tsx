@@ -14,9 +14,9 @@ import {
   LeftOutlined,
   RightOutlined,
 } from '@ant-design/icons'
-import { Input, Modal, message } from 'antd'
+import { Input, message } from 'antd'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Dialog, DialogButton } from 'konsta/react'
+import { Dialog, DialogButton, Link, Navbar, Popup } from 'konsta/react'
 import { RoundedSquareIconButton } from '../../components/buttons/RoundedSquareIconButton'
 import { ANIMATED_BACK_EVENT, type AnimatedBackRequestDetail } from '../../core/navigation/animatedBack'
 import { clearIntersectionPreviewPayload, loadIntersectionPreviewPayload } from '../../core/schedule/intersectionPreview'
@@ -1029,48 +1029,55 @@ function CoursesPage() {
         />
       )}
 
-      <Modal
-        title={`课程详情 · 星期${selectedWeekday} 第${selectedNode}节`}
-        open={isCourseDetailOpen}
-        onCancel={handleCloseCourseDetail}
-        footer={null}
+      <Popup
+        opened={isCourseDetailOpen}
+        onBackdropClick={handleCloseCourseDetail}
       >
-        <div className='course-detail-list'>
-          {selectedCourses.map((course) => {
-            const isExpanded = Boolean(expandedCourseDetailMap[course.lesson.instanceId])
+        <div className='popup-wrapper'>
+          <Navbar
+            title={`星期${selectedWeekday} 第${selectedNode}节`}
+            subtitle='课程详情'
+            left={<Link navbar onClick={handleCloseCourseDetail}>关闭</Link>}
+          />
+          <div className='popup-scrollable'>
+            <div className='course-detail-list'>
+              {selectedCourses.map((course) => {
+                const isExpanded = Boolean(expandedCourseDetailMap[course.lesson.instanceId])
 
-            return (
-              <article key={course.lesson.instanceId} className='course-detail-item'>
-                <h3 className='course-detail-name'>{course.name}</h3>
-                <p className='course-detail-line'>学分：{formatCourseCredit(course.credit)}</p>
-                <p className='course-detail-line'>教室：{course.room || '-'}</p>
-                <p className='course-detail-line'>教师：{course.teacher || '-'}</p>
-                <p className='course-detail-line'>周次：第{course.lesson.startWeek}-{course.lesson.endWeek}周</p>
-                <p className='course-detail-line'>
-                  节次：
-                  {course.lesson.startNode === course.lesson.endNode
-                    ? `第${course.lesson.startNode}节`
-                    : `第${course.lesson.startNode}-${course.lesson.endNode}节`}
-                </p>
+                return (
+                  <article key={course.lesson.instanceId} className='course-detail-item'>
+                    <h3 className='course-detail-name'>{course.name}</h3>
+                    <p className='course-detail-line'>学分：{formatCourseCredit(course.credit)}</p>
+                    <p className='course-detail-line'>教室：{course.room || '-'}</p>
+                    <p className='course-detail-line'>教师：{course.teacher || '-'}</p>
+                    <p className='course-detail-line'>周次：第{course.lesson.startWeek}-{course.lesson.endWeek}周</p>
+                    <p className='course-detail-line'>
+                      节次：
+                      {course.lesson.startNode === course.lesson.endNode
+                        ? `第${course.lesson.startNode}节`
+                        : `第${course.lesson.startNode}-${course.lesson.endNode}节`}
+                    </p>
 
-                <button
-                  type='button'
-                  className='course-detail-toggle'
-                  onClick={() => handleToggleCourseDetail(course.lesson.instanceId)}
-                >
-                  {isExpanded ? '点击收起详情' : '点击展开详情'}
-                </button>
+                    <button
+                      type='button'
+                      className='course-detail-toggle'
+                      onClick={() => handleToggleCourseDetail(course.lesson.instanceId)}
+                    >
+                      {isExpanded ? '点击收起详情' : '点击展开详情'}
+                    </button>
 
-                {isExpanded && (
-                  <div className='course-detail-extra'>
-                    <p className='course-detail-line'>课程详情：{course.lesson.detailText || '暂无课程详情'}</p>
-                  </div>
-                )}
-              </article>
-            )
-          })}
+                    {isExpanded && (
+                      <div className='course-detail-extra'>
+                        <p className='course-detail-line'>课程详情：{course.lesson.detailText || '暂无课程详情'}</p>
+                      </div>
+                    )}
+                  </article>
+                )
+              })}
+            </div>
+          </div>
         </div>
-      </Modal>
+      </Popup>
 
       <Dialog
         title='保存交集课表'
