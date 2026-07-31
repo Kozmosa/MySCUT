@@ -946,6 +946,11 @@ function CoursesPage() {
         <div className='courses-date-panel'>
           <p className='courses-date'>{dateText}</p>
           <p className='courses-week'>第 {currentWeek} 周</p>
+          {scheduleData && scheduleData.table.maxWeek > 0 && (
+            <p className='courses-week-remaining'>
+              距期末周还有 {Math.max(0, scheduleData.table.maxWeek - currentWeek)} 周
+            </p>
+          )}
         </div>
 
         <div className='courses-actions'>

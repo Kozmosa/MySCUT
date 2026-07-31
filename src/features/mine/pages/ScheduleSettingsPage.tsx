@@ -116,6 +116,7 @@ function ScheduleSettingsPage() {
   const [exportTimeSlotPresetId, setExportTimeSlotPresetId] = useState<TimeSlotPresetId>('builtIn')
   const [isExportSanitizeEnabled, setIsExportSanitizeEnabled] = useState(false)
   const [exportSanitizeOptions, setExportSanitizeOptions] = useState<ExportSanitizeOptions>(DEFAULT_EXPORT_SANITIZE_OPTIONS)
+  const [isCreatingShareLink, setIsCreatingShareLink] = useState(false)
   const [savedSchedules, setSavedSchedules] = useState<SavedScheduleItem[]>(() => listSavedSchedules())
   const [isAutoSimplifyHintEnabled, setIsAutoSimplifyHintEnabled] = useState(() => getAutoSimplifyScheduleHintEnabled())
   const [semesterStartDate, setSemesterStartDate] = useState(() => getSemesterStartDate())
@@ -632,6 +633,39 @@ function ScheduleSettingsPage() {
     setIsExportFormatModalOpen(true)
   }
 
+  const handleCreateShareLink = async () => {
+    if (!exportTargetScheduleId) {
+      messageApi.error('未选择导出课表，请重新选择')
+      return
+    }
+
+    const targetSchedule = loadSavedScheduleById(exportTargetScheduleId)
+    if (!targetSchedule) {
+      messageApi.error('未找到目标课表，请重新选择')
+      return
+    }
+
+    setIsCreatingShareLink(true)
+    try {
+      const timeSlotBoundSchedule = applyTimeSlotPresetForExport(targetSchedule, targetSchedule.timeSlotPresetId)
+      const qmsText = buildQmsExportText(timeSlotBoundSchedule)
+      const compressedQmsModule = await import('../../../core/schedule/compressedQms')
+      const encodeCompressedQmsText = compressedQmsModule.encodeCompressedQmsText
+      const compressedQmsText = await encodeCompressedQmsText(qmsText)
+      const shareUrl = `${window.location.origin}/share#${encodeURIComponent(compressedQmsText)}`
+
+      await navigator.clipboard.writeText(shareUrl)
+      messageApi.success('分享链接已复制到剪贴板')
+      setIsExportFormatModalOpen(false)
+      setExportTargetScheduleId('')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '生成分享链接失败'
+      messageApi.error(errorMessage)
+    } finally {
+      setIsCreatingShareLink(false)
+    }
+  }
+
   const handleConfirmExportFormat = async () => {
     if (!exportTargetScheduleId) {
       messageApi.error('未选择导出课表，请重新选择')
@@ -993,6 +1027,18 @@ function ScheduleSettingsPage() {
         onCancel={() => setIsExportFormatModalOpen(false)}
         okText='导出'
         cancelText='取消'
+        footer={(_: unknown, { OkBtn, CancelBtn }: { OkBtn: unknown; CancelBtn: unknown }) => (
+          <>
+            {CancelBtn}
+            {OkBtn}
+            <Button
+              loading={isCreatingShareLink}
+              onClick={() => { void handleCreateShareLink() }}
+            >
+              复制分享链接
+            </Button>
+          </>
+        )}
       >
         <Select
           style={{ width: '100%' }}
