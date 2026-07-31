@@ -50,6 +50,11 @@ const MineDetailPage = lazy(async () => {
   return { default: module.default }
 })
 
+const ShareReceiverPage = lazy(async () => {
+  const module = await import('../features/mine/pages/ShareReceiverPage')
+  return { default: module.default }
+})
+
 function AppRoutes() {
   return (
     <Suspense fallback={null}>
@@ -70,7 +75,7 @@ function AppRoutes() {
         <Route path='/mine/global-settings' element={<MineDetailPage title='全局设置' />} />
         <Route path='/mine/faq' element={<MineDetailPage title='常见问答' />} />
         <Route path='/mine/more' element={<MineDetailPage title='更多' />} />
-      </Routes>
+        <Route path='/share' element={<ShareReceiverPage />} /></Routes>
     </Suspense>
   )
 }
