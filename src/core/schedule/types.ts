@@ -102,7 +102,7 @@ export type ScheduleLesson = {
 
 export type ScheduleData = {
   version: 1
-  source: 'wakeup' | 'scutHtml' | 'intersection'
+  source: 'wakeup' | 'scutHtml' | 'intersection' | 'manual'
   importedAt: number
   table: {
     id: number
