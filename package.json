@@ -51,6 +51,7 @@
     "@capacitor/core": "^8.1.0",
     "@capacitor/ios": "^8.1.0",
     "@capacitor/status-bar": "^8.0.1",
+    "@capgo/capacitor-file-sharer": "^8.1.10",
     "@capgo/capacitor-inappbrowser": "^8.15.3",
     "@hpcc-js/wasm-zstd": "^1.7.0",
     "antd": "^5.27.0",

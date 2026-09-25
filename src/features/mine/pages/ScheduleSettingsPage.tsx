@@ -769,13 +769,19 @@ function ScheduleSettingsPage() {
       const exportSchedule = isExportSanitizeEnabled
         ? sanitizeScheduleForExport(timeSlotBoundSchedule, exportSanitizeOptions)
         : timeSlotBoundSchedule
-
+      
+      let filePath = null
+      
       if (exportFormat === 'wakeup') {
         const wakeupText = buildWakeupExportText(exportSchedule)
-        downloadTextFile(`${baseFileName}.wakeup_schedule`, wakeupText)
+        const { path } = await downloadTextFile(`${baseFileName}.wakeup_schedule`, wakeupText)
+
+        filePath = `${path}/${baseFileName}.wakeup_schedule`
       } else if (exportFormat === 'qms') {
         const qmsText = buildQmsExportText(exportSchedule)
-        downloadTextFile(`${baseFileName}.qms`, qmsText, 'application/json;charset=utf-8')
+        const { path } = await downloadTextFile(`${baseFileName}.qms`, qmsText, 'application/json;charset=utf-8')
+
+        filePath = `${path}/${baseFileName}.qms`
       } else {
         const qmsText = buildQmsExportText(exportSchedule)
         const compressedQmsModule = await import('../../../core/schedule/compressedQms')
@@ -790,7 +796,15 @@ function ScheduleSettingsPage() {
         }
       }
 
-      messageApi.success('课表导出成功')
+      if (filePath) {
+        messageApi.success({
+          content: `课表导出成功，路径：${filePath}`,
+          duration: 5,
+        })
+      } else {
+        messageApi.success('课表导出成功')
+      }
+      
       setIsExportFormatModalOpen(false)
       setExportTargetScheduleId('')
     } catch {

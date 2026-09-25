@@ -11,6 +11,8 @@ import type {
   WakeupTimeSlot,
 } from './types'
 import { resolveScheduleTimeSlotsByPreset } from './timeSlotPresets'
+import { Capacitor } from '@capacitor/core'
+import { FileSharer } from '@capgo/capacitor-file-sharer'
 
 type QmsExportPayload = {
   schema: 'qms'
@@ -288,18 +290,68 @@ export function buildQmsExportText(savedSchedule: SavedSchedule) {
   return JSON.stringify(payload, null, 2)
 }
 
-export function downloadTextFile(fileName: string, content: string, mimeType = 'text/plain;charset=utf-8') {
-  const blob = new Blob([content], { type: mimeType })
-  const objectUrl = URL.createObjectURL(blob)
+function textToBase64(content: string): string {
+  const bytes = new TextEncoder().encode(content)
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+  }
+  return btoa(binary)
+}
 
-  const anchor = document.createElement('a')
-  anchor.href = objectUrl
-  anchor.download = fileName
-  anchor.style.display = 'none'
+export interface DownloadedTextFileType {
+  type: string,
+  path?: string,
+}
 
-  document.body.appendChild(anchor)
-  anchor.click()
-  document.body.removeChild(anchor)
+export async function downloadTextFile(
+  fileName: string,
+  content: string,
+  mimeType = 'text/plain;charset=utf-8',
+): Promise<DownloadedTextFileType> {
+  const base64Data = textToBase64(content)
 
-  URL.revokeObjectURL(objectUrl)
+  if (Capacitor.isNativePlatform()) {
+    await FileSharer.save({
+      filename: fileName,
+      contentType: mimeType,
+      base64Data: base64Data,
+      android: {
+        saveDirectory: 'downloads',
+        relativePath: 'Download/QMM',
+      },
+    })
+
+    const platform = Capacitor.getPlatform()
+
+    if (platform === 'android') {
+      return {
+        type: 'android',
+        path: 'Download/QMM',
+      }
+    } else {
+      return {
+        type: platform,
+      }
+    }
+  } else {
+    const blob = new Blob([content], { type: mimeType })
+    const objectUrl = URL.createObjectURL(blob)
+
+    const anchor = document.createElement('a')
+    anchor.href = objectUrl
+    anchor.download = fileName
+    anchor.style.display = 'none'
+
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+
+    URL.revokeObjectURL(objectUrl)
+
+    return {
+      type: 'web',
+    }
+  }
 }

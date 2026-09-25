@@ -13,6 +13,13 @@ Android 教务导入使用 `@capgo/capacitor-inappbrowser`。该组件采用 Moz
 - 上游源码：https://github.com/Cap-go/capacitor-inappbrowser
 - MPL-2.0：https://www.mozilla.org/MPL/2.0/
 
+### @capgo/capacitor-file-sharer
+
+导出课表文件使用 `@capgo/capacitor-file-sharer`。该组件采用 Mozilla Public License 2.0；应用内许可证列表会展示实际打包版本对应的源码与许可证全文链接。本项目不修改该依赖的上游源码，其 MPL 覆盖范围不扩展到 MySCUT 的独立源文件。
+
+- 上游源码：https://github.com/Cap-go/capacitor-file-sharer
+- MPL-2.0：https://www.mozilla.org/MPL/2.0/
+
 ## survive-in-scut 手册子模块
 
 `external/survive-in-scut` 是独立 Git 上游内容。MySCUT 的 MIT 许可证不覆盖该子模块，也不自动授权其中的文本、图片、PDF、嵌入内容或其他素材。
