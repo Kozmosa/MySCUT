@@ -37,12 +37,12 @@ export function findLatestApk() {
 
   for (const filePath of files) {
     const fileName = basename(filePath)
-    if (fileName === 'app-release.apk') {
+    if (fileName === 'app-release.apk' || fileName === 'app-stable-release.apk') {
       releaseCandidates.push(filePath)
       continue
     }
 
-    if (fileName === 'app-debug.apk') {
+    if (fileName === 'app-debug.apk' || fileName === 'app-stable-debug.apk') {
       debugCandidates.push(filePath)
     }
   }

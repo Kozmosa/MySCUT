@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- nightly 变体覆盖应用名，与 stable（启梦华工）在桌面图标上区分 -->
+<resources>
+    <string name="app_name">MySCUT Nightly</string>
+</resources>

@@ -16,6 +16,29 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // 双通道变体：stable 为正式发布通道；nightly 为 CI 每日构建通道，
+    // 独立包名可与 stable 并排安装，versionCode 由 CI 通过 -PnightlyVersionCode 注入
+    // （与 stable 的 versionCode 互不约束，按 applicationId 各自计数）。
+    // 注意：defaultConfig 的 versionCode/versionName 由 scripts/release/syncNativeVersion.mjs
+    // 以正则回写，flavor 内不要出现 `versionCode <数字>` 字样以免误匹配。
+    flavorDimensions 'channel'
+    productFlavors {
+        stable {
+            dimension 'channel'
+        }
+        nightly {
+            dimension 'channel'
+            applicationIdSuffix '.nightly'
+            if (project.hasProperty('nightlyVersionName')) {
+                versionName project.property('nightlyVersionName')
+            } else {
+                versionNameSuffix '-dev'
+            }
+            if (project.hasProperty('nightlyVersionCode')) {
+                versionCode Integer.parseInt(project.property('nightlyVersionCode').toString())
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
