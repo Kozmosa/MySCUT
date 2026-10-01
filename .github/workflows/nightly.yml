@@ -1,0 +1,135 @@
+name: Nightly Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository and pinned manual
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run type, test, app build and documentation checks
+        run: npm run check
+
+      - name: Audit public repository data
+        run: npm run audit:public-data
+
+  nightly:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_PUBLIC_BASE_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}
+      R2_KEY_PREFIX: ${{ secrets.R2_KEY_PREFIX }}
+      R2_S3_ENDPOINT: ${{ secrets.R2_S3_ENDPOINT }}
+
+    steps:
+      - name: Checkout repository and pinned manual
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Resolve nightly identity
+        run: |
+          SHA7="$(git rev-parse --short=7 HEAD)"
+          STAMP="$(date -u +%Y%m%d)-${SHA7}"
+          echo "NIGHTLY_STAMP=${STAMP}" >> "$GITHUB_ENV"
+          echo "NIGHTLY_VERSION=0.0.0-nightly.${STAMP}" >> "$GITHUB_ENV"
+          echo "nightly stamp: ${STAMP}"
+
+      - name: Decode nightly keystore
+        run: |
+          printf '%s' "${{ secrets.KEYSTORE_NIGHTLY }}" | base64 -d > "$RUNNER_TEMP/nightly.keystore"
+          test -s "$RUNNER_TEMP/nightly.keystore"
+
+      - name: Build web assets for nightly channel
+        env:
+          VITE_UPDATE_CHANNEL: nightly
+          VITE_UPDATE_MANIFEST_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}/${{ secrets.R2_KEY_PREFIX }}/nightly/versions.json
+        run: npm run build:android
+
+      - name: Build and sign nightly APK
+        env:
+          KEYSTORE_NIGHTLY_PASS: ${{ secrets.KEYSTORE_NIGHTLY_PASS }}
+        run: |
+          cd android
+          ./gradlew assembleNightlyRelease --console=plain \
+            -PnightlyVersionName="$NIGHTLY_VERSION" \
+            -PnightlyVersionCode="${{ github.run_number }}"
+          cd ..
+          BT_DIR="$(ls -d "$ANDROID_HOME/build-tools/"*/ | sort -V | tail -n 1)"
+          UNSIGNED="android/app/build/outputs/apk/nightly/release/app-nightly-release-unsigned.apk"
+          ALIGNED="$RUNNER_TEMP/nightly-aligned.apk"
+          SIGNED="$RUNNER_TEMP/qmm-nightly-$NIGHTLY_STAMP.apk"
+          "$BT_DIR/zipalign" -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT_DIR/apksigner" sign \
+            --ks "$RUNNER_TEMP/nightly.keystore" \
+            --ks-pass "pass:$KEYSTORE_NIGHTLY_PASS" \
+            --key-pass "pass:$KEYSTORE_NIGHTLY_PASS" \
+            --out "$SIGNED" \
+            "$ALIGNED"
+          "$BT_DIR/apksigner" verify --print-certs "$SIGNED"
+
+      - name: Create nightly prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "nightly-$NIGHTLY_STAMP" \
+            --repo Kozmosa/MySCUT \
+            --prerelease \
+            --title "nightly-$NIGHTLY_STAMP" \
+            --notes "nightly 构建版本：$NIGHTLY_VERSION（commit $(git rev-parse HEAD)）
+
+          安装说明：nightly 为独立包名 com.manual.univ.nightly，可与正式版并排安装；两者数据相互独立，更新仅覆盖 nightly 自身。更新清单走 R2 nightly 单源。" \
+            "$RUNNER_TEMP/qmm-nightly-$NIGHTLY_STAMP.apk"
+
+      - name: Upload to R2 and publish nightly manifest
+        env:
+          APK_PATH: ${{ runner.temp }}/qmm-nightly-${{ env.NIGHTLY_STAMP }}.apk
+          NIGHTLY_RELEASE_URL: https://github.com/Kozmosa/MySCUT/releases/tag/nightly-${{ env.NIGHTLY_STAMP }}
+        run: node scripts/release/nightly.mjs
