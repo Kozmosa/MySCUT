@@ -2,7 +2,9 @@
 
 interface ImportMetaEnv {
   readonly VITE_UPDATE_MANIFEST_URL?: string
+  readonly VITE_UPDATE_MANIFEST_FALLBACK_URL?: string
   readonly VITE_UPDATE_PROVIDER_ORDER?: string
+  readonly VITE_UPDATE_CHANNEL?: string
 }
 
 declare const __APP_VERSION__: string

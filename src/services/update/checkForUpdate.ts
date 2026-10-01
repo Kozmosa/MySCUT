@@ -1,3 +1,4 @@
+import { UPDATE_CHANNEL } from './channel'
 import {
   buildProviderUrl,
   DEFAULT_UPDATE_PROVIDER_ORDER,
@@ -8,6 +9,8 @@ const DEFAULT_PRIMARY_MANIFEST_URL =
   'https://pub-2d4ca40983644b4295125ec388670de9.r2.dev/kozmos/releases/versions.json'
 const DEFAULT_FALLBACK_MANIFEST_URL =
   'https://cdn.jsdelivr.net/gh/Kozmosa/MySCUT@main/versions.json'
+const DEFAULT_NIGHTLY_MANIFEST_URL =
+  'https://pub-2d4ca40983644b4295125ec388670de9.r2.dev/kozmos/releases/nightly/versions.json'
 
 type RemoteVersionAssets = {
   apk?: string | RemoteAssetLink[]
@@ -23,6 +26,7 @@ type RemoteAssetLink = {
 type RemoteVersionItem = {
   version: string
   releaseUrl?: string
+  minVersion?: string
   assets?: RemoteVersionAssets
 }
 
@@ -47,6 +51,8 @@ type CheckedManifest = {
   providerId: UpdateLinkProviderId
   providerName: string
   latestVersion: string
+  minVersion: string | null
+  releaseUrl: string | null
   downloadUrl: string | null
   apkAsset: ApkAssetDescriptor | null
 }
@@ -75,7 +81,20 @@ type UpToDateResult = {
   providerName: string
 }
 
-export type AppUpdateCheckResult = UpdateAvailableResult | UpToDateResult
+// 本地版本低于清单声明的 minVersion 时返回：应用内直接更新到 latest 已不可行
+// （如更换签名密钥后的存量版本），需引导用户走卸载重装的迁移路径。
+type MigrationRequiredResult = {
+  status: 'migration-required'
+  localVersion: string
+  latestVersion: string
+  minVersion: string
+  providerId: UpdateLinkProviderId
+  providerName: string
+  releaseUrl: string | null
+  downloadUrl: string | null
+}
+
+export type AppUpdateCheckResult = UpdateAvailableResult | UpToDateResult | MigrationRequiredResult
 
 function normalizeVersion(version: string) {
   const trimmedVersion = version.trim()
@@ -91,7 +110,7 @@ function parseVersionSegments(version: string) {
     })
 }
 
-function compareVersion(left: string, right: string) {
+export function compareVersion(left: string, right: string) {
   const leftSegments = parseVersionSegments(left)
   const rightSegments = parseVersionSegments(right)
   const maxLength = Math.max(leftSegments.length, rightSegments.length)
@@ -183,6 +202,13 @@ function normalizeAssetLinks(assetField: string | RemoteAssetLink[] | undefined)
 }
 
 function resolveDefaultManifestUrls() {
+  if (UPDATE_CHANNEL === 'nightly') {
+    // nightly 清单不进仓库，无 jsDelivr 回退源，为 R2 单源；R2 不可达时直接报错，
+    // 测试者可到 GitHub Releases 页人工下载。
+    const nightlyUrl = import.meta.env.VITE_UPDATE_MANIFEST_URL?.trim() || DEFAULT_NIGHTLY_MANIFEST_URL
+    return nightlyUrl ? [nightlyUrl] : []
+  }
+
   const primaryUrl = import.meta.env.VITE_UPDATE_MANIFEST_URL?.trim() || DEFAULT_PRIMARY_MANIFEST_URL
   const fallbackUrl = import.meta.env.VITE_UPDATE_MANIFEST_FALLBACK_URL?.trim() || DEFAULT_FALLBACK_MANIFEST_URL
   return [...new Set([primaryUrl, fallbackUrl].filter(Boolean))]
@@ -285,6 +311,12 @@ async function loadVersionManifest(
         providerId: 'raw',
         providerName: sourceName,
         latestVersion: responseJson.latest.version,
+        minVersion: typeof responseJson.latest.minVersion === 'string' && responseJson.latest.minVersion.trim()
+          ? responseJson.latest.minVersion.trim()
+          : null,
+        releaseUrl: typeof responseJson.latest.releaseUrl === 'string' && responseJson.latest.releaseUrl.trim()
+          ? responseJson.latest.releaseUrl.trim()
+          : null,
         downloadUrl: resolveDownloadUrl(responseJson.latest, providerOrder),
         apkAsset: resolveApkAssetDescriptor(responseJson.latest.assets?.apk, providerOrder),
       }
@@ -307,6 +339,19 @@ export async function checkForAppUpdate({
     manifestUrls ?? resolveDefaultManifestUrls(),
   )
   const compared = compareVersion(result.latestVersion, localVersion)
+
+  if (result.minVersion && compareVersion(localVersion, result.minVersion) < 0) {
+    return {
+      status: 'migration-required',
+      localVersion,
+      latestVersion: result.latestVersion,
+      minVersion: result.minVersion,
+      providerId: result.providerId,
+      providerName: result.providerName,
+      releaseUrl: result.releaseUrl,
+      downloadUrl: result.downloadUrl,
+    }
+  }
 
   if (compared > 0) {
     return {

@@ -14,7 +14,7 @@ import { THIRD_PARTY_LICENSES } from '../../generated/thirdPartyLicenses'
 import { useGlobalTheme } from '../../platform/web/theme/GlobalThemeProvider'
 import { ApkUpdater, supportsInAppApkUpdate } from '../../platform/capacitor/apkUpdater'
 import { confirmWithBackDismiss, useBackDismiss } from '../../platform/capacitor/useBackDismiss'
-import { checkForAppUpdate, type ApkAssetDescriptor } from '../../services/update'
+import { checkForAppUpdate, IS_NIGHTLY_CHANNEL, type ApkAssetDescriptor } from '../../services/update'
 
 type MineDetailPageProps = {
   title: string
@@ -182,6 +182,23 @@ function MineDetailPage({ title }: MineDetailPageProps) {
 
       if (result.status === 'up-to-date') {
         messageApi.success('当前已是最新版本')
+        return
+      }
+
+      if (result.status === 'migration-required') {
+        confirmWithBackDismiss({
+          title: '当前版本过旧，需要重新安装',
+          content: `当前版本 v${result.localVersion} 低于最低可原地升级版本 v${result.minVersion}，无法在应用内直接更新到 v${result.latestVersion}。请先在「课表设置 → 导出课表」备份，再卸载当前应用，从发布页安装最新版本。`,
+          okText: '打开发布页',
+          cancelText: '稍后',
+          onOk: () => {
+            window.open(
+              result.releaseUrl ?? 'https://github.com/Kozmosa/MySCUT/releases',
+              '_blank',
+              'noopener,noreferrer',
+            )
+          },
+        })
         return
       }
 
@@ -405,7 +422,7 @@ function MineDetailPage({ title }: MineDetailPageProps) {
               <div className='mine-group-button mine-setting-row'>
                 <div className='mine-setting-copy'>
                   <p className='mine-detail-card-title'>当前版本</p>
-                  <p className='mine-detail-card-description'>{`v${__APP_VERSION__}`}</p>
+                  <p className='mine-detail-card-description'>{`v${__APP_VERSION__}${IS_NIGHTLY_CHANNEL ? '（Nightly 通道）' : ''}`}</p>
                 </div>
                 <Button className='mine-update-check-button' loading={isCheckingUpdate} onClick={handleCheckUpdate}>
                   检查更新

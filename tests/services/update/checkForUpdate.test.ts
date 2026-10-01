@@ -1,9 +1,51 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { checkForAppUpdate } from '../../../src/services/update/checkForUpdate'
+import { checkForAppUpdate, compareVersion } from '../../../src/services/update/checkForUpdate'
+
+const STABLE_MANIFEST_URL =
+  'https://pub-2d4ca40983644b4295125ec388670de9.r2.dev/kozmos/releases/versions.json'
+const NIGHTLY_MANIFEST_URL =
+  'https://pub-2d4ca40983644b4295125ec388670de9.r2.dev/kozmos/releases/nightly/versions.json'
+
+function stubManifestFetch(body: unknown) {
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => body,
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+function buildManifest({ version, minVersion }: { version: string; minVersion?: string }) {
+  return {
+    latest: {
+      version,
+      ...(minVersion ? { minVersion } : {}),
+      releaseUrl: `https://github.com/Kozmosa/MySCUT/releases/tag/v${version}`,
+      assets: {
+        apk: [
+          {
+            source: 'r2',
+            url: `https://r2.example.com/releases/v${version}/qmm-v${version}.apk`,
+            size: 123,
+            sha256: 'ab'.repeat(32),
+          },
+          {
+            source: 'github',
+            url: `https://github.com/Kozmosa/MySCUT/releases/download/v${version}/qmm-v${version}.apk`,
+            size: 123,
+            sha256: 'ab'.repeat(32),
+          },
+        ],
+      },
+    },
+  }
+}
 
 describe('checkForAppUpdate', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
   })
 
   it('uses the primary manifest directly and returns an R2 asset URL', async () => {
@@ -200,5 +242,72 @@ describe('checkForAppUpdate', () => {
         manifestUrls: ['https://primary.example.com/versions.json', 'https://fallback.example.com/versions.json'],
       }),
     ).rejects.toThrow('无法获取远程版本信息')
+  })
+
+  it('prefers the r2 asset carrying a checksum via the default stable manifest', async () => {
+    const fetchMock = stubManifestFetch(buildManifest({ version: '0.9.0' }))
+
+    const result = await checkForAppUpdate({ localVersion: '0.7.3' })
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(STABLE_MANIFEST_URL)
+    expect(result.status).toBe('update-available')
+    if (result.status === 'update-available') {
+      expect(result.apkAsset?.url).toBe('https://r2.example.com/releases/v0.9.0/qmm-v0.9.0.apk')
+      expect(result.apkAsset?.sha256).toBe('ab'.repeat(32))
+    }
+  })
+
+  it('requires migration when local is below minVersion', async () => {
+    stubManifestFetch(buildManifest({ version: '0.9.0', minVersion: '0.8.0' }))
+
+    const result = await checkForAppUpdate({ localVersion: '0.7.3' })
+
+    expect(result.status).toBe('migration-required')
+    if (result.status === 'migration-required') {
+      expect(result.minVersion).toBe('0.8.0')
+      expect(result.latestVersion).toBe('0.9.0')
+      expect(result.releaseUrl).toBe('https://github.com/Kozmosa/MySCUT/releases/tag/v0.9.0')
+    }
+  })
+
+  it('does not require migration when local equals minVersion', async () => {
+    stubManifestFetch(buildManifest({ version: '0.9.0', minVersion: '0.8.0' }))
+
+    const result = await checkForAppUpdate({ localVersion: '0.8.0' })
+
+    expect(result.status).toBe('update-available')
+  })
+
+  it('uses the single nightly manifest source when channel is nightly', async () => {
+    vi.resetModules()
+    vi.stubEnv('VITE_UPDATE_CHANNEL', 'nightly')
+    const { checkForAppUpdate: freshCheckForAppUpdate } = await import(
+      '../../../src/services/update/checkForUpdate'
+    )
+
+    const fetchMock = stubManifestFetch({ latest: { version: '0.0.0-nightly.20261002.abc1234' } })
+
+    const result = await freshCheckForAppUpdate({ localVersion: '0.0.0-nightly.20261001.abc1234' })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(NIGHTLY_MANIFEST_URL)
+    expect(result.status).toBe('update-available')
+  })
+})
+
+describe('compareVersion', () => {
+  it('compares numeric segments instead of strings', () => {
+    expect(compareVersion('0.7.9', '0.7.10')).toBeLessThan(0)
+    expect(compareVersion('0.7.10', '0.7.9')).toBeGreaterThan(0)
+  })
+
+  it('treats segments with suffixes by their leading digits', () => {
+    expect(compareVersion('0.0.0-nightly.20261001.abc1234', '0.0.0-nightly.20261002.abc1234')).toBeLessThan(0)
+    expect(compareVersion('0.0.0-nightly.20261002.abc1234', '0.0.0-nightly.20261001.def5678')).toBeGreaterThan(0)
+  })
+
+  it('strips the v prefix and treats missing segments as zero', () => {
+    expect(compareVersion('v0.8.0', '0.8.0')).toBe(0)
+    expect(compareVersion('0.8', '0.8.1')).toBeLessThan(0)
   })
 })
