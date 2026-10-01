@@ -108,6 +108,7 @@ export function updateVersionsJson({
   hasIosAsset,
   r2AssetUrls,
   assetMetadata,
+  minVersion = '',
   publishedAt = new Date().toISOString(),
 }) {
   const baseDownloadUrl = `https://github.com/${owner}/${repo}/releases/download/${tag}`
@@ -157,6 +158,7 @@ export function updateVersionsJson({
       tag,
       publishedAt,
       releaseUrl: nextVersionData.releaseUrl,
+      ...(minVersion ? { minVersion } : {}),
       assets: {
         ...nextVersionData.assets,
         versions: r2AssetUrls?.latestVersions || nextVersionData.assets.versions,
