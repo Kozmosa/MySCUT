@@ -1,31 +1,26 @@
-// 非交互 CI 发版编排：在 GitHub Actions runner（或本地）复用 scripts/release 模块完成
-// stable 版本发布。与 scripts/release/main.mjs 的差异：
-// - 无任何交互确认点；APK 用 gradle CLI 构建并以 secret 提供的 keystore 签名
-// - manual 子模块漂移自动预提交（todoSnapshot + gitlink），消除本地发版的人工纪律
-// - 发版成功后清理 R2 上一版前缀，只保留最新 stable
+// 发版第二阶段（GitHub Actions runner 执行）：从已推送的 bump commit 构建、签名并发布。
+// 前置：维护者已通过 scripts/release/prepare.mjs 提交 bump commit 并推送 tag vX。
+// 本脚本不向 main 推送任何内容；versions.json 的最终 size/sha256 只写入 R2 清单与
+// GitHub Release 资产，仓库中的骨架 versions.json 保持维护者提交的形态。
 // 环境变量：R2_*（必需）、KEYSTORE_STABLE（base64）、KEYSTORE_STABLE_PASS（必需），
-// KEYSTORE_STABLE_CERT_SHA256（可选，提供时签名后校验证书指纹）、GH_TOKEN（gh 与推送凭证）。
+// KEYSTORE_STABLE_CERT_SHA256（可选，提供时签名后校验证书指纹）、GH_TOKEN（gh 凭证）。
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { extname, resolve } from 'node:path'
 import {
-  manualSubmodulePath,
   releaseArtifactDir,
+  releaseNotesDir,
   rootDir,
-  versionsJsonPath,
   VERSION_PATTERN,
+  versionsJsonPath,
 } from './constants.mjs'
 import {
   ensureCleanWorktree,
   ensureGitHubAuth,
   ensureMainBranch,
-  ensureTagNotExists,
-  getGitStatusSnapshot,
-  parseStatusPaths,
-  stageCommitAndTag,
+  ensureTagExists,
 } from './gitFlow.mjs'
 import { publishGithubRelease } from './githubRelease.mjs'
-import { resolveReleaseNote, writeReleaseNoteFile } from './notes.mjs'
 import {
   buildR2LatestVersionsObjectKey,
   buildR2PublicUrl,
@@ -34,37 +29,10 @@ import {
   uploadAndVerifyReleaseAssetToR2,
 } from './r2.mjs'
 import { loadR2Config } from './r2Config.mjs'
-import { calculateFileMetadata, runFile, runFileSilently } from './shared.mjs'
-import {
-  updatePackageVersionFiles,
-  updateVersionsJson,
-  validateTargetVersion,
-} from './versioning.mjs'
+import { calculateFileMetadata, readJson, runFile, runFileSilently } from './shared.mjs'
+import { compareVersions, updateVersionsJson } from './versioning.mjs'
 
-const DRIFT_PATHS = ['external/survive-in-scut', 'src/generated/todoSnapshot.ts']
-
-function parseCiArgs(argv) {
-  let version = ''
-  let noteFile = ''
-  let minVersion = ''
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index]
-    if (!version && VERSION_PATTERN.test(arg)) {
-      version = arg
-      continue
-    }
-    if (arg.startsWith('--note-file=')) {
-      noteFile = arg.slice('--note-file='.length)
-      continue
-    }
-    if (arg.startsWith('--min-version=')) {
-      minVersion = arg.slice('--min-version='.length)
-    }
-  }
-
-  return { version, noteFile: noteFile || `.release-notes/v${version}.md`, minVersion }
-}
+const REPO_SLUG = 'Kozmosa/MySCUT'
 
 function requireEnv(name) {
   const value = process.env[name]?.trim()
@@ -74,13 +42,51 @@ function requireEnv(name) {
   return value
 }
 
-function runGradle(args, env = {}) {
-  const gradlew = resolve(rootDir, 'android', process.platform === 'win32' ? 'gradlew.bat' : 'gradlew')
-  if (process.platform === 'win32') {
-    runFile('cmd.exe', ['/c', gradlew, ...args], resolve(rootDir, 'android'), env)
+function resolveTaggedVersion(argv) {
+  const version = argv.find((arg) => VERSION_PATTERN.test(arg)) ?? ''
+  if (!version) {
+    throw new Error('Missing version code. Usage: npm run release:ci -- <version_code>')
+  }
+  return version
+}
+
+function assertBumpCommitReady({ nextVersion, tag }) {
+  const packageVersion = String(readJson(resolve(rootDir, 'package.json')).version ?? '')
+  if (packageVersion !== nextVersion) {
+    throw new Error(`package.json version is ${packageVersion}, expected ${nextVersion}. HEAD 不是 v${nextVersion} 的 bump commit。`)
+  }
+
+  const versionsData = readJson(versionsJsonPath)
+  const latestVersion = String(versionsData?.latest?.version ?? '')
+  if (latestVersion !== nextVersion || versionsData?.latest?.tag !== tag) {
+    throw new Error(`versions.json latest is ${latestVersion || '(empty)'}, expected ${nextVersion}/${tag}.`)
+  }
+
+  const noteFilePath = resolve(releaseNotesDir, `${tag}.md`)
+  if (!existsSync(noteFilePath)) {
+    throw new Error(`Release note not found: ${noteFilePath}`)
+  }
+  return noteFilePath
+}
+
+function checkoutTaggedCommitIfDiverged(tag) {
+  const tagTarget = runFileSilently('git', ['rev-parse', `${tag}^{commit}`], rootDir)
+  const head = runFileSilently('git', ['rev-parse', 'HEAD'], rootDir)
+  if (tagTarget === head) {
     return
   }
-  runFile(gradlew, args, resolve(rootDir, 'android'), env)
+
+  console.log(`HEAD is not the ${tag} commit; checking out the tagged tree ${tagTarget.slice(0, 8)}`)
+  runFile('git', ['checkout', '--detach', tagTarget], rootDir)
+}
+
+function runGradle(args) {
+  const gradlew = resolve(rootDir, 'android', process.platform === 'win32' ? 'gradlew.bat' : 'gradlew')
+  if (process.platform === 'win32') {
+    runFile('cmd.exe', ['/c', gradlew, ...args], resolve(rootDir, 'android'))
+    return
+  }
+  runFile(gradlew, args, resolve(rootDir, 'android'))
 }
 
 function resolveBuildToolsDir() {
@@ -119,35 +125,16 @@ function runBuildToolsTool(toolName, args) {
   runFile(executable, args, rootDir)
 }
 
-function ensureGitIdentity() {
-  const existingEmail = runFileSilently('git', ['config', 'user.email'], rootDir).trim()
-  if (existingEmail) {
-    return
-  }
-
-  process.env.GIT_AUTHOR_NAME ||= 'MySCUT Release CI'
-  process.env.GIT_AUTHOR_EMAIL ||= '41898282+github-actions[bot]@users.noreply.github.com'
-  process.env.GIT_COMMITTER_NAME ||= process.env.GIT_AUTHOR_NAME
-  process.env.GIT_COMMITTER_EMAIL ||= process.env.GIT_AUTHOR_EMAIL
-}
-
-function commitManualDriftIfAny() {
-  const changedPaths = parseStatusPaths(getGitStatusSnapshot())
-  const drifted = DRIFT_PATHS.filter((path) => changedPaths.includes(path))
-  if (drifted.length === 0) {
-    return false
-  }
-
-  const unexpected = changedPaths.filter((path) => !DRIFT_PATHS.includes(path))
-  if (unexpected.length > 0) {
-    throw new Error(`Unexpected changes besides manual drift:\n${unexpected.join('\n')}`)
-  }
-
-  const manualShortSha = runFileSilently('git', ['rev-parse', '--short', 'HEAD'], manualSubmodulePath)
-  runFile('git', ['add', '--', ...DRIFT_PATHS], rootDir)
-  runFile('git', ['commit', '-m', `chore(manual): bump survive-in-scut to ${manualShortSha}`], rootDir)
-  console.log(`Pre-committed manual drift (survive-in-scut ${manualShortSha})`)
-  return true
+function runCertVerify(signedApk) {
+  const buildToolsDir = resolveBuildToolsDir()
+  const apksigner = process.platform === 'win32'
+    ? resolve(buildToolsDir, 'apksigner.bat')
+    : resolve(buildToolsDir, 'apksigner')
+  const result = process.platform === 'win32'
+    ? execFileSync('cmd.exe', ['/c', apksigner, 'verify', '--print-certs', signedApk], { encoding: 'utf8' })
+    : execFileSync(apksigner, ['verify', '--print-certs', signedApk], { encoding: 'utf8' })
+  console.log(result)
+  return result
 }
 
 function buildSignAndCollectApk(nextVersion) {
@@ -190,36 +177,51 @@ function buildSignAndCollectApk(nextVersion) {
   return signedApk
 }
 
-function runCertVerify(signedApk) {
-  const buildToolsDir = resolveBuildToolsDir()
-  const apksigner = process.platform === 'win32'
-    ? resolve(buildToolsDir, 'apksigner.bat')
-    : resolve(buildToolsDir, 'apksigner')
-  const result = process.platform === 'win32'
-    ? execFileSync('cmd.exe', ['/c', apksigner, 'verify', '--print-certs', signedApk], { encoding: 'utf8' })
-    : execFileSync(apksigner, ['verify', '--print-certs', signedApk], { encoding: 'utf8' })
-  console.log(result)
-  return result
+function assertSkeletonMatchesR2Config({ nextVersion, r2Config }) {
+  const versionsData = readJson(versionsJsonPath)
+  const apkEntries = Array.isArray(versionsData?.latest?.assets?.apk) ? versionsData.latest.assets.apk : []
+  const r2Entry = apkEntries.find((entry) => entry?.source === 'r2')
+  const expectedUrl = buildR2PublicUrl({
+    publicBaseUrl: r2Config.publicBaseUrl,
+    objectKey: buildR2ReleaseObjectKey({
+      keyPrefix: r2Config.keyPrefix,
+      version: nextVersion,
+      fileName: `qmm-v${nextVersion}.apk`,
+    }),
+  })
+
+  if (r2Entry?.url !== expectedUrl) {
+    throw new Error(`versions.json 骨架中的 r2 下载地址 (${r2Entry?.url ?? '(none)'}) 与 CI 的 R2 配置推导结果 (${expectedUrl}) 不一致，请核对本地 R2_ENV 与 repo secrets。`)
+  }
+}
+
+function resolvePreviousVersion({ nextVersion }) {
+  const versionsData = readJson(versionsJsonPath)
+  const known = Object.keys(versionsData?.versions ?? {}).filter((version) => version !== nextVersion)
+  if (known.length === 0) {
+    return ''
+  }
+  return known.sort((left, right) => compareVersions(left, right))[known.length - 1]
 }
 
 async function main() {
-  const { version: nextVersion, noteFile, minVersion } = parseCiArgs(process.argv.slice(2))
-  if (!nextVersion) {
-    throw new Error('Missing version code. Usage: npm run release:ci -- <version_code> [--note-file <path>] [--min-version <version>]')
-  }
-  const { packageJson, currentVersion } = validateTargetVersion(nextVersion)
+  const nextVersion = resolveTaggedVersion(process.argv.slice(2))
   const tag = `v${nextVersion}`
 
-  const note = resolveReleaseNote({ note: '', noteFile })
   const r2Config = loadR2Config()
 
   ensureMainBranch()
-  ensureTagNotExists(tag)
+  ensureTagExists(tag)
   ensureCleanWorktree()
   ensureGitHubAuth()
-  ensureGitIdentity()
+  checkoutTaggedCommitIfDiverged(tag)
+  const noteFilePath = assertBumpCommitReady({ nextVersion, tag })
+  assertSkeletonMatchesR2Config({ nextVersion, r2Config })
 
   runFile('git', ['submodule', 'update', '--init', '--recursive'], rootDir)
+  runFile('npm', ['run', 'check'], rootDir)
+  runFile('npm', ['run', 'build:android'], rootDir)
+  const signedApk = buildSignAndCollectApk(nextVersion)
 
   const publishedAt = new Date().toISOString()
   const keyPrefix = r2Config.keyPrefix
@@ -231,64 +233,43 @@ async function main() {
     versions: buildR2PublicUrl({ publicBaseUrl: r2Config.publicBaseUrl, objectKey: versionedManifestKey }),
     latestVersions: buildR2PublicUrl({ publicBaseUrl: r2Config.publicBaseUrl, objectKey: latestManifestKey }),
   }
-
-  updatePackageVersionFiles(packageJson, nextVersion)
-  updateVersionsJson({
-    version: nextVersion,
-    tag,
-    owner: 'Kozmosa',
-    repo: 'MySCUT',
-    hasAndroidAsset: true,
-    hasIosAsset: false,
-    r2AssetUrls,
-    minVersion,
-    publishedAt,
-  })
-  runFile('node', ['scripts/syncNativeVersion.mjs'], rootDir)
-  runFile('npm', ['run', 'check'], rootDir)
-
-  commitManualDriftIfAny()
-
-  runFile('npm', ['run', 'build:android'], rootDir)
-  const signedApk = buildSignAndCollectApk(nextVersion)
+  const committedMinVersion = String(readJson(versionsJsonPath)?.latest?.minVersion ?? '')
 
   updateVersionsJson({
     version: nextVersion,
     tag,
-    owner: 'Kozmosa',
-    repo: 'MySCUT',
+    owner: REPO_SLUG.split('/')[0],
+    repo: REPO_SLUG.split('/')[1],
     hasAndroidAsset: true,
     hasIosAsset: false,
     r2AssetUrls,
     assetMetadata: { apk: calculateFileMetadata(signedApk) },
-    minVersion,
+    minVersion: committedMinVersion,
     publishedAt,
   })
-
-  const noteFilePath = writeReleaseNoteFile({ tag, content: note })
 
   console.log(`Uploading APK to R2: ${r2AssetUrls.apk}`)
   await uploadAndVerifyReleaseAssetToR2({ localFilePath: signedApk, objectKey: apkObjectKey, r2Config })
   await uploadAndVerifyReleaseAssetToR2({ localFilePath: versionsJsonPath, objectKey: versionedManifestKey, r2Config })
   await uploadAndVerifyReleaseAssetToR2({ localFilePath: versionsJsonPath, objectKey: latestManifestKey, r2Config })
 
-  const repoSlug = 'Kozmosa/MySCUT'
-  stageCommitAndTag({ version: nextVersion, tag, noteFilePath })
   publishGithubRelease({
     tag,
-    repoSlug,
+    repoSlug: REPO_SLUG,
     assetPaths: [signedApk, versionsJsonPath],
     noteFilePath,
   })
 
-  if (currentVersion !== nextVersion) {
-    const previousPrefix = buildR2ReleaseObjectKey({ keyPrefix, version: currentVersion, fileName: '' })
+  const previousVersion = resolvePreviousVersion({ nextVersion })
+  if (previousVersion) {
+    const previousPrefix = buildR2ReleaseObjectKey({ keyPrefix, version: previousVersion, fileName: '' })
     const removed = await deleteR2ObjectsWithPrefix({ r2Config, prefix: previousPrefix })
     console.log(`Removed ${removed} R2 objects of previous version prefix: ${previousPrefix}`)
   }
 
   rmSync(releaseArtifactDir, { recursive: true, force: true })
-  console.log(`Release published and verified: https://github.com/${repoSlug}/releases/tag/${tag}`)
+  console.log(`Release published and verified: https://github.com/${REPO_SLUG}/releases/tag/${tag}`)
+  console.log('仓库中的 versions.json 仍为骨架（不含 size/sha256）；如需回退通道也带校验和，可手动提交补全（参考历史 backfill commit）。')
 }
 
 await main()

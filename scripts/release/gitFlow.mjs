@@ -54,6 +54,39 @@ export function ensureTagNotExists(tag) {
   throw new Error(`Tag ${tag} already exists locally. Please use a new version.`)
 }
 
+export function ensureTagExists(tag) {
+  try {
+    return execFileSync('git', ['rev-parse', '--verify', `refs/tags/${tag}`], {
+      cwd: rootDir,
+      encoding: 'utf8',
+    }).trim()
+  } catch {
+    throw new Error(`Tag ${tag} does not exist. Run release:bump first (it creates the tag).`)
+  }
+}
+
+// manual 子模块漂移:buildApp 会把 gitlink 切到远端 tip 并重生成 todoSnapshot;
+// 发版准备阶段若发现漂移,自动预提交,避免白名单检查中止
+export function commitManualDriftIfAny() {
+  const driftPaths = [toRepoPath(manualSubmodulePath), 'src/generated/todoSnapshot.ts']
+  const changedPaths = parseStatusPaths(getGitStatusSnapshot())
+  const drifted = driftPaths.filter((filePath) => changedPaths.includes(filePath))
+  if (drifted.length === 0) {
+    return false
+  }
+
+  const unexpected = changedPaths.filter((filePath) => !driftPaths.includes(filePath))
+  if (unexpected.length > 0) {
+    throw new Error(`Unexpected changes besides manual drift:\n${unexpected.join('\n')}`)
+  }
+
+  const manualShortSha = runFileSilently('git', ['rev-parse', '--short', 'HEAD'], manualSubmodulePath)
+  runFile('git', ['add', '--', ...driftPaths], rootDir)
+  runFile('git', ['commit', '-m', `chore(manual): bump survive-in-scut to ${manualShortSha}`], rootDir)
+  console.log(`Pre-committed manual drift (survive-in-scut ${manualShortSha})`)
+  return true
+}
+
 export function ensureMainBranch() {
   const rootBranch = runFileSilently('git', ['rev-parse', '--abbrev-ref', 'HEAD'], rootDir)
   if (rootBranch !== 'main') {
