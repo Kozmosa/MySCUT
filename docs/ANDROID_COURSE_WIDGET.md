@@ -45,6 +45,12 @@
 - 今天有课且仍有未结束课程：显示可滚动课程列表；宽样式在启用剩余课程显示时，于底部显示剩余课程数。
 - 今天有课但全部结束：隐藏课程列表，在组件中央显示“今日课程已结束”。
 
+宽版组件的页脚上间距和底部留白共用 `course_widget_footer_gap`（8dp），顶部与两侧留白保持 12dp。纵向留白由 `widget_sections` 承担，空状态文字仍以整个 `widget_content` 居中；关闭页脚后，列表自动回收其占用的空间。字号和课程行样式不随这项间距调整改变。
+
+下面使用合成课程展示 Pixel Launcher 中的前后效果；课程列表边缘的半行表示仍可滚动，不代表课程丢失。
+
+![宽版小组件页脚间距调整前后](images/course-widget-footer-spacing.png)
+
 ## 列表兼容机制
 
 四种样式共用 `CourseWidgetRemoteViews` 和 `CourseWidgetListFactory.createItemView()`，课程名称、地点、时间、颜色和点击行为保持一致。列表数据通道按系统版本切换：
