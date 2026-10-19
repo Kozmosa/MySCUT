@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Match the wide widget footer's top gap and bottom inset. -->
+    <dimen name="course_widget_footer_gap">8dp</dimen>
+
     <!-- Smallest gap between the header columns, the real gap grows when the schedule name is short. -->
     <dimen name="course_widget_header_gap">24dp</dimen>
 
