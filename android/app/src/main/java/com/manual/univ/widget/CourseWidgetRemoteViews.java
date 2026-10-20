@@ -229,11 +229,25 @@ final class CourseWidgetRemoteViews {
             return;
         }
 
-        if (content.semesterNotStarted()) {
+        CourseWidgetSemester semester = content.semester();
+        if (semester.state() == CourseWidgetSemester.State.INVALID_DATE) {
+            hideLessonList(views);
+            showStatus(views, context.getString(R.string.course_widget_invalid_semester_date));
+            return;
+        }
+
+        if (semester.state() == CourseWidgetSemester.State.NOT_STARTED) {
             hideLessonList(views);
             showStatus(
                     views,
-                    context.getString(R.string.course_widget_semester_not_started));
+                    context.getString(
+                            R.string.course_widget_semester_countdown, semester.daysUntilStart()));
+            return;
+        }
+
+        if (semester.state() == CourseWidgetSemester.State.ENDED) {
+            hideLessonList(views);
+            showStatus(views, context.getString(R.string.course_widget_semester_ended));
             return;
         }
 

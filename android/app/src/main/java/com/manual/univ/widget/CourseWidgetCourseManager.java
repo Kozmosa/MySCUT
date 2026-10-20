@@ -5,20 +5,13 @@ import android.graphics.Color;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
-import java.util.TimeZone;
 
 // Reads the schedule JSON stored for the widget. It knows nothing about how a widget looks.
 final class CourseWidgetCourseManager {
-    private static final long DAY_IN_MILLIS = 24L * 60L * 60L * 1000L;
-
     private CourseWidgetCourseManager() {}
 
     static JSONObject getScheduleData(JSONObject schedule) {
@@ -33,21 +26,7 @@ final class CourseWidgetCourseManager {
         return schedule == null ? "我的课表" : schedule.optString("name", "我的课表");
     }
 
-    static int getCurrentWeek(JSONObject schedule) {
-        Integer differenceDays = getStartDayDifference(schedule);
-        return differenceDays == null
-                ? 1
-                : Math.max(1, (int) Math.floorDiv(differenceDays, 7L) + 1);
-    }
-
-    static boolean hasSemesterStarted(JSONObject schedule) {
-        Integer differenceDays = getStartDayDifference(schedule);
-        return differenceDays != null && differenceDays >= 0;
-    }
-
-    // Calendar days from the semester start to today
-    // Returns null when the start date is unusable
-    private static Integer getStartDayDifference(JSONObject schedule) {
+    static CourseWidgetSemester getSemester(JSONObject schedule, LocalDate today) {
         JSONObject scheduleData = getScheduleData(schedule);
         JSONObject table = scheduleData == null ? null : scheduleData.optJSONObject("table");
 
@@ -56,29 +35,8 @@ final class CourseWidgetCourseManager {
             startDateText = table.optString("startDate", "");
         }
 
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
-        formatter.setLenient(false);
-        formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
-
-        try {
-            Date semesterStart = formatter.parse(startDateText);
-            if (semesterStart == null) {
-                return null;
-            }
-
-            Calendar localToday = Calendar.getInstance();
-            Calendar utcToday = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-            utcToday.clear();
-            utcToday.set(
-                    localToday.get(Calendar.YEAR),
-                    localToday.get(Calendar.MONTH),
-                    localToday.get(Calendar.DAY_OF_MONTH));
-            return (int)
-                    Math.floorDiv(
-                            utcToday.getTimeInMillis() - semesterStart.getTime(), DAY_IN_MILLIS);
-        } catch (ParseException error) {
-            return null;
-        }
+        int maxWeek = table == null ? 1 : table.optInt("maxWeek", 1);
+        return CourseWidgetSemester.resolve(startDateText, maxWeek, today);
     }
 
     static List<JSONObject> getTodayLessons(JSONObject scheduleData, int weekday, int currentWeek) {

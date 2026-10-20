@@ -16,6 +16,7 @@
 | `CourseWidgetRefresh` | 统一安排 `RTC_WAKEUP` 刷新闹钟、查询精确闹钟权限并处理权限变化 |
 | `CourseWidgetRemoteViewsService` / `CourseWidgetListFactory` | 为 Android 8–11 的组件提供 service-backed 可滚动课程列表 |
 | `CourseWidgetCourseManager` | 选择当天课程、读取课程信息和颜色，并填充课程卡片 |
+| `CourseWidgetSemester` | 按本地日历日期解析学期状态、当前周与开学倒计时 |
 | `CourseWidgetTimeResolver` | 按时间表预设解析课程起止时间，并判断课程是否已结束 |
 | `CourseWidgetAppearance` / `CourseWidgetColorUtils` | 解析小组件浅色、深色及用户指定的调色板 |
 
@@ -29,6 +30,26 @@
 4. 外观同步会将当前主题模式及浅色、深色调色板一并传入；Provider 渲染时按所选模式应用调色板，系统模式则跟随资源的日夜主题。
 
 学期起始日期随当前课表 JSON 一起同步，Android 据此计算当前周。小组件根据系统本地日期选择星期和当天课程。
+
+## 学期状态
+
+四种样式共用学期状态判断，口径与课程页一致：优先读取当前课表的 `semesterStartDate`，缺失时回退到 `scheduleData.table.startDate`；从该日期起每 7 天算一周，最大周数至少为 1，不将非周一起始日期改为周一。
+
+| 状态 | 小组件显示 |
+| --- | --- |
+| 尚无课表数据 | 保留“数据未加载，请先打开应用进行初始化”提示 |
+| 起始日期缺失或无效 | 提示“请在应用中检查学期起始日期” |
+| 起始日期之前 | 显示“距离开学还有 X 天”，按本地日历日计算 |
+| 第 1 周至最大周数 | 显示当前周、当天课程或原有的今日无课/课程已结束状态 |
+| 超过最大周数 | 显示“学期已结束” |
+
+学期之外隐藏周次、课程列表和剩余课程数，避免未开学显示第 1 周或结束后周数继续递增。一次渲染从同一个时间快照取得本地日期、周次和课程结束判断；日历日差不按本地时间的 24 小时长度计算，避免夏令时产生偏差。
+
+非上课状态沿用次日 `00:00:05` 的刷新安排；课表同步、修改学期设置、系统日期或时区变化也会重新计算。Android 的 `Intent.ACTION_TIME_CHANGED` 对应实际广播名称 `android.intent.action.TIME_SET`，Manifest 必须监听后者。
+
+下面为合成课表在原生组件容器中的显示示例，沿用现有的状态文字样式：
+
+![开学倒计时与学期结束提示](images/course-widget-semester-states.png)
 
 ## 时间表和课程显示
 
@@ -80,7 +101,7 @@
 
 ```powershell
 Set-Location android
-.\gradlew.bat :app:testDebugUnitTest
+.\gradlew.bat :app:testNightlyDebugUnitTest
 ```
 
-测试位于 `android/app/src/test/java/com/manual/univ/widget/CourseWidgetTimeResolverTest.java`，覆盖各时间表预设、缺失时间回退以及课程结束时间边界。
+测试位于 `android/app/src/test/java/com/manual/univ/widget/`。`CourseWidgetTimeResolverTest` 覆盖各时间表预设、缺失时间回退以及课程结束时间边界；`CourseWidgetSemesterTest` 覆盖开学日、最后一周、学期结束、非周一起始日期、无效日期、跨年/闰日、时区和夏令时边界。
