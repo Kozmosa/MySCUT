@@ -229,11 +229,25 @@ final class CourseWidgetRemoteViews {
             return;
         }
 
-        if (content.semesterNotStarted()) {
+        CourseWidgetSemester semester = content.semester();
+        if (semester.state() == CourseWidgetSemester.State.INVALID_DATE) {
+            hideLessonList(views);
+            showStatus(views, context.getString(R.string.course_widget_invalid_semester_date));
+            return;
+        }
+
+        if (semester.state() == CourseWidgetSemester.State.NOT_STARTED) {
             hideLessonList(views);
             showStatus(
                     views,
-                    context.getString(R.string.course_widget_semester_not_started));
+                    context.getString(
+                            R.string.course_widget_semester_countdown, semester.daysUntilStart()));
+            return;
+        }
+
+        if (semester.state() == CourseWidgetSemester.State.ENDED) {
+            hideLessonList(views);
+            showStatus(views, context.getString(R.string.course_widget_semester_ended));
             return;
         }
 
@@ -244,6 +258,8 @@ final class CourseWidgetRemoteViews {
                     content.hasLessonsToday()
                             ? dayFinishedText
                             : context.getString(R.string.course_widget_no_lessons));
+            // The empty states keep the footer busy with tomorrow instead of hiding it.
+            bindTomorrowFooter(context, views, content, showsFooter);
             return;
         }
 
@@ -336,5 +352,25 @@ final class CourseWidgetRemoteViews {
                     R.id.widget_footer,
                     context.getString(R.string.course_widget_remaining, remaining));
         }
+    }
+
+    // The footer follows the same toggle as today's count, so it only runs on the empty states.
+    private static void bindTomorrowFooter(
+            Context context,
+            RemoteViews views,
+            CourseWidgetContent.Snapshot content,
+            boolean showsFooter) {
+        if (!showsFooter) {
+            return;
+        }
+
+        int tomorrowCount = content.tomorrowLessonCount();
+        views.setViewVisibility(R.id.widget_footer, View.VISIBLE);
+        views.setTextViewText(
+                R.id.widget_footer,
+                tomorrowCount > 0
+                        ? context.getString(
+                                R.string.course_widget_tomorrow_lessons, tomorrowCount)
+                        : context.getString(R.string.course_widget_tomorrow_none));
     }
 }

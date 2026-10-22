@@ -10,10 +10,14 @@
     <string name="custom_url_scheme">com.manual.univ</string>
     <string name="course_widget_remaining">今日还剩 %1$d 节课</string>
     <string name="course_widget_remaining_sample">今日还剩 2 节课</string>
+    <string name="course_widget_tomorrow_lessons">明日还有 %1$d 节课</string>
+    <string name="course_widget_tomorrow_none">明日无课</string>
     <string name="course_widget_day_finished">今日课程已结束</string>
     <string name="course_widget_no_lessons">今日无课</string>
     <string name="course_widget_no_data">数据未加载，请先打开应用进行初始化</string>
-    <string name="course_widget_semester_not_started">学期未开始</string>
+    <string name="course_widget_semester_countdown">距离开学还有 %1$d 天</string>
+    <string name="course_widget_semester_ended">学期已结束</string>
+    <string name="course_widget_invalid_semester_date">请在应用中检查学期起始日期</string>
 
     <!-- Sample data for the widget picker previews. -->
     <string name="course_widget_preview_schedule_name">课表</string>
