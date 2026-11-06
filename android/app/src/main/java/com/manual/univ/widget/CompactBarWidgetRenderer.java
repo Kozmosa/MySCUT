@@ -2,6 +2,8 @@ package com.manual.univ.widget;
 
 import android.appwidget.AppWidgetManager;
 import android.content.Context;
+import android.os.Build;
+import android.util.TypedValue;
 import android.widget.RemoteViews;
 
 import com.manual.univ.R;
@@ -52,11 +54,38 @@ final class CompactBarWidgetRenderer {
                     CourseWidgetRemoteViews.LessonStyle.COMPACT_BAR,
                     palette,
                     false);
-            CourseWidgetRemoteViews.bindSquareContent(
-                    context, appWidgetManager, appWidgetId, views);
+            applySquareContent(context, appWidgetManager, appWidgetId, views);
             appWidgetManager.updateAppWidget(appWidgetId, views);
             CourseWidgetRemoteViews.notifyLessonListChanged(
                     appWidgetManager, appWidgetId);
         }
+    }
+
+    // Pins the block to a square of the reported size, skipped when it would clip the courses.
+    private static void applySquareContent(
+            Context context, AppWidgetManager appWidgetManager, int appWidgetId, RemoteViews views) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return;
+        }
+
+        CourseWidgetRemoteViews.WidgetSize size =
+                CourseWidgetRemoteViews.resolveWidgetSize(
+                        context, appWidgetManager.getAppWidgetOptions(appWidgetId));
+        int sideDp = Math.min(size.widthDp(), size.heightDp());
+        if (sideDp <= 0) {
+            return;
+        }
+
+        int sidePx =
+                Math.round(sideDp * context.getResources().getDisplayMetrics().density);
+        int contentHeightPx =
+                CourseWidgetRemoteViews.measureContentHeight(
+                        context, R.layout.compact_bar_widget_layout, sidePx);
+        if (contentHeightPx > sidePx) {
+            return;
+        }
+
+        views.setViewLayoutWidth(android.R.id.background, sideDp, TypedValue.COMPLEX_UNIT_DIP);
+        views.setViewLayoutHeight(android.R.id.background, sideDp, TypedValue.COMPLEX_UNIT_DIP);
     }
 }

@@ -13,6 +13,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.SizeF;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.RemoteViews;
 
@@ -109,48 +110,57 @@ final class CourseWidgetRemoteViews {
         views.setTextColor(R.id.widget_footer, palette.secondaryTextColor());
     }
 
-    // Tints the rounded compact surface.
-    // The tint API is 31+, so older hosts keep the default color.
+    // Applies the rounded widget surface while preserving the legacy background on older hosts.
+    static void bindWideSurface(RemoteViews views, CourseWidgetAppearance.Palette palette) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            views.setColorStateList(
+                    android.R.id.background,
+                    "setBackgroundTintList",
+                    ColorStateList.valueOf(palette.backgroundColor()));
+            bindWidgetOutline(views);
+        } else {
+            views.setInt(
+                    android.R.id.background,
+                    "setBackgroundColor",
+                    palette.backgroundColor());
+        }
+    }
+
+    // Tints the rounded compact surface. The tint API is 31+, so older hosts keep the default color.
     static void bindCompactSurface(RemoteViews views, CourseWidgetAppearance.Palette palette) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             views.setColorStateList(
-                    R.id.widget_content,
+                    android.R.id.background,
                     "setBackgroundTintList",
                     ColorStateList.valueOf(palette.backgroundColor()));
+            bindWidgetOutline(views);
         }
     }
 
-    // Keeps the compact variants inside their original centered square.
-    static void bindSquareContent(
-            Context context,
-            AppWidgetManager appWidgetManager,
-            int appWidgetId,
-            RemoteViews views) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            return;
-        }
-
-        WidgetSize size =
-                resolveWidgetSize(
-                        context, appWidgetManager.getAppWidgetOptions(appWidgetId));
-        int sideDp = Math.min(size.widthDp(), size.heightDp());
-        if (sideDp <= 0) {
-            return;
-        }
-
-        views.setViewLayoutWidth(
-                R.id.widget_content,
-                sideDp,
-                android.util.TypedValue.COMPLEX_UNIT_DIP);
-        views.setViewLayoutHeight(
-                R.id.widget_content,
-                sideDp,
-                android.util.TypedValue.COMPLEX_UNIT_DIP);
+    @RequiresApi(api = Build.VERSION_CODES.S)
+    private static void bindWidgetOutline(RemoteViews views) {
+        views.setViewOutlinePreferredRadiusDimen(
+                android.R.id.background,
+                android.R.dimen.system_app_widget_background_radius);
     }
 
-    private record WidgetSize(int widthDp, int heightDp) {}
+    // Height the content block needs at that width, measured instead of hard coded.
+    static int measureContentHeight(Context context, int layoutRes, int widthPx) {
+        View root = LayoutInflater.from(context).inflate(layoutRes, null);
+        View content = root.findViewById(android.R.id.background);
+        if (content == null) {
+            return 0;
+        }
 
-    private static WidgetSize resolveWidgetSize(Context context, Bundle options) {
+        content.measure(
+                View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        return content.getMeasuredHeight();
+    }
+
+    record WidgetSize(int widthDp, int heightDp) {}
+
+    static WidgetSize resolveWidgetSize(Context context, Bundle options) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             SizeF current = pickCurrentSize(readWidgetSizes(options), isLandscape(context));
             if (current != null) {
