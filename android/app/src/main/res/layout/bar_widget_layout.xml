@@ -9,13 +9,16 @@
         android:id="@+id/widget_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="12dp">
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
 
         <LinearLayout
             android:id="@+id/widget_sections"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:paddingTop="12dp"
+            android:paddingBottom="@dimen/course_widget_footer_gap">
 
             <RelativeLayout
                 android:id="@+id/widget_header"
@@ -80,7 +83,7 @@
                 android:id="@+id/widget_footer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="@dimen/course_widget_footer_gap"
                 android:gravity="center"
                 android:textColor="@color/course_widget_footer_text"
                 android:textSize="14sp"
