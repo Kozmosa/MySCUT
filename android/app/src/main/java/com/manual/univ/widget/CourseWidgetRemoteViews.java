@@ -13,6 +13,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.SizeF;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.RemoteViews;
 
@@ -120,37 +121,23 @@ final class CourseWidgetRemoteViews {
         }
     }
 
-    // Keeps the compact variants inside their original centered square.
-    static void bindSquareContent(
-            Context context,
-            AppWidgetManager appWidgetManager,
-            int appWidgetId,
-            RemoteViews views) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            return;
+    // Height the content block needs at that width, measured instead of hard coded.
+    static int measureContentHeight(Context context, int layoutRes, int widthPx) {
+        View root = LayoutInflater.from(context).inflate(layoutRes, null);
+        View content = root.findViewById(R.id.widget_content);
+        if (content == null) {
+            return 0;
         }
 
-        WidgetSize size =
-                resolveWidgetSize(
-                        context, appWidgetManager.getAppWidgetOptions(appWidgetId));
-        int sideDp = Math.min(size.widthDp(), size.heightDp());
-        if (sideDp <= 0) {
-            return;
-        }
-
-        views.setViewLayoutWidth(
-                R.id.widget_content,
-                sideDp,
-                android.util.TypedValue.COMPLEX_UNIT_DIP);
-        views.setViewLayoutHeight(
-                R.id.widget_content,
-                sideDp,
-                android.util.TypedValue.COMPLEX_UNIT_DIP);
+        content.measure(
+                View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        return content.getMeasuredHeight();
     }
 
-    private record WidgetSize(int widthDp, int heightDp) {}
+    record WidgetSize(int widthDp, int heightDp) {}
 
-    private static WidgetSize resolveWidgetSize(Context context, Bundle options) {
+    static WidgetSize resolveWidgetSize(Context context, Bundle options) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             SizeF current = pickCurrentSize(readWidgetSizes(options), isLandscape(context));
             if (current != null) {
