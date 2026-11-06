@@ -68,6 +68,8 @@
 
 宽版组件的页脚上间距和底部留白共用 `course_widget_footer_gap`（8dp），顶部与两侧留白保持 12dp。纵向留白由 `widget_sections` 承担，空状态文字仍以整个 `widget_content` 居中；关闭页脚后，列表自动回收其占用的空间。字号和课程行样式不随这项间距调整改变。
 
+四种样式的 `widget_sections` 均按 header、弹性列表容器、footer 的顺序排列。中间容器固定使用 `0dp` 高度和 `layout_weight="1"`，因此即使课程列表被隐藏，footer 仍保持在组件底部，空状态文字继续以整个 `widget_content` 居中。
+
 下面使用合成课程展示 Pixel Launcher 中的前后效果；课程列表边缘的半行表示仍可滚动，不代表课程丢失。
 
 ![宽版小组件页脚间距调整前后](images/course-widget-footer-spacing.png)
