@@ -31,6 +31,10 @@
 
 学期起始日期随当前课表 JSON 一起同步，Android 据此计算当前周。小组件根据系统本地日期选择星期和当天课程。
 
+## 组件圆角与紧凑尺寸
+
+四种样式都把实际可见的组件表面标记为 `@android:id/background`。Android 12（API 31）及以上使用 `system_app_widget_background_radius` 设置背景 Drawable 和 `RemoteViews.setViewOutlinePreferredRadiusDimen()`，让 Launcher/OEM 按系统圆角渲染并裁剪；Android 11 及以下的宽组件保留纯色背景，紧凑组件继续使用本地 `18dp` 圆角。正方形尺寸仍只有在内容测量不会超过正方形时才应用。
+
 ## 学期状态
 
 四种样式共用学期状态判断，口径与课程页一致：优先读取当前课表的 `semesterStartDate`，缺失时回退到 `scheduleData.table.startDate`；从该日期起每 7 天算一周，最大周数至少为 1，不将非周一起始日期改为周一。

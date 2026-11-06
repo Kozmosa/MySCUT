@@ -85,7 +85,7 @@ final class CompactCardWidgetRenderer {
             return;
         }
 
-        views.setViewLayoutWidth(R.id.widget_content, sideDp, TypedValue.COMPLEX_UNIT_DIP);
-        views.setViewLayoutHeight(R.id.widget_content, sideDp, TypedValue.COMPLEX_UNIT_DIP);
+        views.setViewLayoutWidth(android.R.id.background, sideDp, TypedValue.COMPLEX_UNIT_DIP);
+        views.setViewLayoutHeight(android.R.id.background, sideDp, TypedValue.COMPLEX_UNIT_DIP);
     }
 }

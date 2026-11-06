@@ -9,7 +9,7 @@ import com.manual.univ.R;
 // Bar style, every course shows a rounded color bar on its left instead of a filled card.
 final class BarWidgetRenderer {
     private static final int[] CLICKABLE_VIEW_IDS = {
-        R.id.widget_root,
+        android.R.id.background,
         R.id.widget_header,
         R.id.widget_schedule_name,
         R.id.widget_date,
@@ -43,7 +43,7 @@ final class BarWidgetRenderer {
             CourseWidgetRemoteViews.bindClickTargets(
                     context, views, appWidgetId, CLICKABLE_VIEW_IDS);
             CourseWidgetRemoteViews.bindTextColors(views, palette);
-            views.setInt(R.id.widget_root, "setBackgroundColor", palette.backgroundColor());
+            CourseWidgetRemoteViews.bindWideSurface(views, palette);
             CourseWidgetRemoteViews.bindHeader(views, content, content.dateLabel());
             CourseWidgetRemoteViews.bindScrollableLessons(
                     context,

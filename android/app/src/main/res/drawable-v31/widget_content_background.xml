@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ widget surface follows the radius selected by the launcher/OEM. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/course_widget_background" />
+    <corners android:radius="@android:dimen/system_app_widget_background_radius" />
+</shape>

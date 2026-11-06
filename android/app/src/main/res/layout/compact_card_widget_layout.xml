@@ -9,11 +9,12 @@
 
     <!-- The parent centers this content after it is resized to a square. -->
     <FrameLayout
-        android:id="@+id/widget_content"
+        android:id="@android:id/background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="center"
         android:background="@drawable/widget_content_background"
+        android:clipToOutline="true"
         android:padding="12dp"
         tools:ignore="UselessParent">
 

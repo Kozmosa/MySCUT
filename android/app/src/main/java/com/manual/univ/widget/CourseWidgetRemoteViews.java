@@ -110,21 +110,44 @@ final class CourseWidgetRemoteViews {
         views.setTextColor(R.id.widget_footer, palette.secondaryTextColor());
     }
 
-    // Tints the rounded compact surface.
-    // The tint API is 31+, so older hosts keep the default color.
+    // Applies the rounded widget surface while preserving the legacy background on older hosts.
+    static void bindWideSurface(RemoteViews views, CourseWidgetAppearance.Palette palette) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            views.setColorStateList(
+                    android.R.id.background,
+                    "setBackgroundTintList",
+                    ColorStateList.valueOf(palette.backgroundColor()));
+            bindWidgetOutline(views);
+        } else {
+            views.setInt(
+                    android.R.id.background,
+                    "setBackgroundColor",
+                    palette.backgroundColor());
+        }
+    }
+
+    // Tints the rounded compact surface. The tint API is 31+, so older hosts keep the default color.
     static void bindCompactSurface(RemoteViews views, CourseWidgetAppearance.Palette palette) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             views.setColorStateList(
-                    R.id.widget_content,
+                    android.R.id.background,
                     "setBackgroundTintList",
                     ColorStateList.valueOf(palette.backgroundColor()));
+            bindWidgetOutline(views);
         }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.S)
+    private static void bindWidgetOutline(RemoteViews views) {
+        views.setViewOutlinePreferredRadiusDimen(
+                android.R.id.background,
+                android.R.dimen.system_app_widget_background_radius);
     }
 
     // Height the content block needs at that width, measured instead of hard coded.
     static int measureContentHeight(Context context, int layoutRes, int widthPx) {
         View root = LayoutInflater.from(context).inflate(layoutRes, null);
-        View content = root.findViewById(R.id.widget_content);
+        View content = root.findViewById(android.R.id.background);
         if (content == null) {
             return 0;
         }
